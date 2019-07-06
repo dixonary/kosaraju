@@ -24,7 +24,7 @@ dependencies:
 - pretty-simple
 - diagrams
 - diagrams-svg
-- diagrams-core
+- diagrams-core 
 - SVGFonts
 
 default-extensions:
