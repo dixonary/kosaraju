@@ -19,10 +19,9 @@ import Data.Set (Set)
 import qualified Data.Set as Set
 
 import Data.VASS.Generalised
-import Data.VASS.Examples
-import Data.VASS.Shared
 import Data.VASS.KarpMiller
 import Data.VASS.KarpMiller.ExtendedNaturals
+import Data.VASS.Shared
 import Data.VASS
 
 import Data.Functor ((<&>))
@@ -106,10 +105,12 @@ kosaraju' vs = do
     The pseudo-run also obeys the restrictions on constrained places at each known point.
 -}
 
-{-
+
 θ₁ :: GVASS -> IO ThetaOneResult
 θ₁ (GVASS components) = do
+    undefined
 
+{-
     -- 1. Construct ILP problem.
     -- Finding unbounded solutions in the non-homo case is the same as 
     -- finding any solution in the homo (RHS zeroes) case.
@@ -256,8 +257,10 @@ refineθ₁ g@(GVASS components) ZeroCoord {..} = do
         -- Something's gone wrong!
         | otherwise
             -> error $ unlines $ 
-                [ "Tried to constrain a coordinate which was not unconstrained!" ]
-                ++ prettyPrint g ++ [show (ZeroCoord{..})]
+                [ "Tried to constrain a coordinate which was not unconstrained!" 
+                , show g
+                , show (ZeroCoord{..})
+                ]
     
 refineθ₁ g@(GVASS components) ZeroTransition {..} = do
 
@@ -456,10 +459,6 @@ runLDN rows = do
 
     return (b,p)
 
-
--- | A test case based on our simple worked example
-g :: GVASS
-g = generalise exampleOne ("q1", [0,0]) ("q3", [1,1])
 
 
 data ThetaOneResult = ThetaOneHolds 

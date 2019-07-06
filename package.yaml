@@ -22,10 +22,8 @@ dependencies:
 - filepath
 - megaparsec
 - pretty-simple
-- diagrams
-- diagrams-svg
-- diagrams-core 
-- SVGFonts
+- vass
+
 
 default-extensions:
 - TypeSynonymInstances

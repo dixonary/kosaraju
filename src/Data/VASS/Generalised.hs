@@ -20,18 +20,11 @@ import Data.Coerce
 
 import Text.Printf
 
-import Utils
-
 import Data.VAS (VAS)
 import Data.VAS.Read (Spec(..))
 
 data GVASS = GVASS [Component]
-    
-instance Section GVASS where
-    header _ = Just "GVASS"
-    body (GVASS components) = concat $ prettyPrint <$> components
-
-instance Show GVASS where show = unlines . prettyPrint
+    deriving (Show)
 
 
 
@@ -51,36 +44,8 @@ data Component = Component
     , initialVector              :: SparseVector Integer
     , finalVector                :: SparseVector Integer
     }
+    deriving (Show)
 
-
-instance Section Component where
-    header _ = Just "Component"
-    body Component{..}   = concat
-            [ ["Dimension: " ++ show dimension]
-            , ["States"]
-            , prettyPrint states
-            , ["Transitions"]
-            , prettyPrint transitions
-            , ["Initial State: " ++ coerce initialState]
-            , ["Final State: " ++ coerce finalState]
-            , ["Rigid coordinates: "]
-            , prettyPrint rigidCoords
-            , ["Rigid Vector: "]
-            , prettyPrint rigidValues
-            , ["Initial Constrained Coordinates: "]
-            , prettyPrint initialConstrainedCoords
-            , ["Initial Unconstrained Coordinates:"]
-            , prettyPrint initialUnconstrainedCoords
-            , ["Final Constrained Coordinates:"]
-            , prettyPrint finalConstrainedCoords
-            , ["Final Unconstrained Coordinates: "]
-            , prettyPrint finalUnconstrainedCoords
-            , ["Initial Vector: "]
-            , prettyPrint initialVector
-            , ["Final Vector: "]
-            , prettyPrint finalVector
-            ]
-    
 
 generaliseSpec :: Spec -> GVASS
 generaliseSpec (Spec vas initial target) = let

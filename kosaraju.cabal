@@ -4,7 +4,7 @@ cabal-version: 1.12
 --
 -- see: https://github.com/sol/hpack
 --
--- hash: 8179d9292517f5a13047073cdca419cc46d15186d4107dfb3b833593907f269b
+-- hash: 9d063d1df41861d477b88e79989b9a8ec1f9e96d78ed1928f44b4eda09c15778
 
 name:           kosaraju
 version:        0.1.0.0
@@ -15,6 +15,7 @@ author:         Alex Dixon
 maintainer:     alexander.dixon@warwick.ac.uk
 copyright:      2019 Alex Dixon
 license:        BSD3
+license-file:   LICENSE
 build-type:     Simple
 
 source-repository head
@@ -23,15 +24,7 @@ source-repository head
 
 library
   exposed-modules:
-      Data.VAS
-      Data.VAS.Read
-      Data.VASS
-      Data.VASS.Examples
       Data.VASS.Generalised
-      Data.VASS.KarpMiller
-      Data.VASS.KarpMiller.ExtendedNaturals
-      Data.VASS.KarpMiller.Render
-      Data.VASS.Shared
       Kosaraju
       Utils
   other-modules:
@@ -40,17 +33,14 @@ library
       src
   default-extensions: TypeSynonymInstances FlexibleInstances UnicodeSyntax RecordWildCards OverloadedStrings QuasiQuotes LambdaCase MultiWayIf TupleSections DuplicateRecordFields
   build-depends:
-      SVGFonts
-    , base >=4.7 && <5
+      base >=4.7 && <5
     , containers
-    , diagrams
-    , diagrams-core
-    , diagrams-svg
     , filepath
     , megaparsec
     , mtl
     , pretty-simple
     , sbv ==8.2
+    , vass
     , vector
   default-language: Haskell2010
 
@@ -63,18 +53,15 @@ executable kosaraju-exe
   default-extensions: TypeSynonymInstances FlexibleInstances UnicodeSyntax RecordWildCards OverloadedStrings QuasiQuotes LambdaCase MultiWayIf TupleSections DuplicateRecordFields
   ghc-options: -threaded -rtsopts -with-rtsopts=-N
   build-depends:
-      SVGFonts
-    , base >=4.7 && <5
+      base >=4.7 && <5
     , containers
-    , diagrams
-    , diagrams-core
-    , diagrams-svg
     , filepath
     , kosaraju
     , megaparsec
     , mtl
     , pretty-simple
     , sbv ==8.2
+    , vass
     , vector
   default-language: Haskell2010
 
@@ -88,17 +75,14 @@ test-suite kosaraju-test
   default-extensions: TypeSynonymInstances FlexibleInstances UnicodeSyntax RecordWildCards OverloadedStrings QuasiQuotes LambdaCase MultiWayIf TupleSections DuplicateRecordFields
   ghc-options: -threaded -rtsopts -with-rtsopts=-N
   build-depends:
-      SVGFonts
-    , base >=4.7 && <5
+      base >=4.7 && <5
     , containers
-    , diagrams
-    , diagrams-core
-    , diagrams-svg
     , filepath
     , kosaraju
     , megaparsec
     , mtl
     , pretty-simple
     , sbv ==8.2
+    , vass
     , vector
   default-language: Haskell2010

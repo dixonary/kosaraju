@@ -13,51 +13,14 @@ import Data.Function ((&))
 import Data.Bifunctor (Bifunctor, first, second)
 import Data.Monoid
 
--- | Some amount of indentation.
-indent :: Int -> String
-indent i = concat (replicate i "    ")
-
-
-class Section a where
-    header   :: a -> Maybe String
-    doIndent :: a -> Bool
-    body     :: a -> [String]
-
-    header   _ = Nothing
-    doIndent _ = True
-
-instance Show a => Section [a] where
-    body       = \case
-            [] -> ["∅"]
-            ls -> pure $ concat $ intersperse " " $ map show ls
-
-instance Show a => Section (Set a) where
-    body = body . Set.toList
-
-instance (Show k, Show a) => Section (Map k a) where
-    body m = case vars of
-                []   -> ["∅"]
-                ls -> ls
-
-        where vars = [ show k ++ " => " ++ show v | (k, v) <- Map.toList m]
-
-prettyPrint :: Section a => a -> [String]
-prettyPrint pp = concat $
-    [
-        maybeToList $ header pp,
-        map ( indent (bool 0 1 (doIndent pp)) ++ ) $ body pp
-    ]
-
-
-
-
-
 -- Helper functions
 
 {-# INLINE toMaybe #-}
 toMaybe :: Bool -> a -> Maybe a
 toMaybe False _ = Nothing
 toMaybe True  x = Just x
+
+
 
 project :: Eq a => Set Int -> DV.Vector a -> DV.Vector a
 project set vec = catMaybes 
@@ -72,11 +35,3 @@ catMaybes = mconcat . foldr poss []
             poss (Just x) s = pure x : s
             poss Nothing  s = s
 
-
-
--- Helpful map functions
-collate :: Ord a => [(a, b)] -> Map a [b]
-collate = foldr (\(k,v) m -> Map.insertWith (++) k [v] m) mempty
-
-decollate :: Ord a => Map a [b] -> [(a,b)]
-decollate = concat . Map.mapWithKey (\k vs -> map (k,) vs) 
