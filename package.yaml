@@ -1,0 +1,59 @@
+library:
+  source-dirs: src
+tests:
+  kosaraju-test:
+    source-dirs: test
+    main: Spec.hs
+    ghc-options:
+    - -threaded
+    - -rtsopts
+    - -with-rtsopts=-N
+    dependencies:
+    - kosaraju
+
+copyright: 2019 Alex Dixon
+maintainer: alexander.dixon@warwick.ac.uk
+dependencies:
+- vector
+- base >= 4.7 && < 5
+- sbv == 8.2
+- containers
+- mtl
+- filepath
+- megaparsec
+- pretty-simple
+- diagrams
+- diagrams-svg
+- diagrams-core
+- SVGFonts
+
+default-extensions:
+- TypeSynonymInstances
+- FlexibleInstances
+- UnicodeSyntax
+- RecordWildCards
+- OverloadedStrings
+- QuasiQuotes
+- LambdaCase
+- MultiWayIf
+- TupleSections
+- DuplicateRecordFields
+
+name: kosaraju
+version: 0.1.0.0
+extra-source-files: []
+author: Alex Dixon
+github: dixonary/kosaraju
+license: BSD3
+executables:
+  kosaraju-exe:
+    source-dirs: app
+    main: Main.hs
+    ghc-options:
+    - -threaded
+    - -rtsopts
+    - -with-rtsopts=-N
+    dependencies:
+    - kosaraju
+
+description: Please see the README on GitHub at <https://github.com/dixonary/kosaraju#readme>
