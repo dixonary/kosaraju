@@ -23,6 +23,7 @@ dependencies:
 - megaparsec
 - pretty-simple
 - vass
+- karp-miller
 
 
 default-extensions:

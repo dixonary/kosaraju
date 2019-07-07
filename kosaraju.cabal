@@ -4,7 +4,7 @@ cabal-version: 1.12
 --
 -- see: https://github.com/sol/hpack
 --
--- hash: b4f950e62c68dd0225b4ab6026ef19ea28e34b656eda8fdbf9470c69ec9d4782
+-- hash: 841fafe04d3e3f5b3fcd92c8b556767c19bfd7d44c80be45f130a1f08b5eec97
 
 name:           kosaraju
 version:        0.1.0.0
@@ -27,7 +27,6 @@ library
       Data.GVASS
       Data.GVASS.SCC
       Kosaraju
-      Utils
   other-modules:
       Paths_kosaraju
   hs-source-dirs:
@@ -37,6 +36,7 @@ library
       base >=4.7 && <5
     , containers
     , filepath
+    , karp-miller
     , megaparsec
     , mtl
     , pretty-simple
@@ -57,6 +57,7 @@ executable kosaraju-exe
       base >=4.7 && <5
     , containers
     , filepath
+    , karp-miller
     , kosaraju
     , megaparsec
     , mtl
@@ -79,6 +80,7 @@ test-suite kosaraju-test
       base >=4.7 && <5
     , containers
     , filepath
+    , karp-miller
     , kosaraju
     , megaparsec
     , mtl

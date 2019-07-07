@@ -13,14 +13,16 @@ import Documentation.SBV.Examples.Existentials.Diophantine (ldn, Solution(..))
 
 import Data.List ((\\), elemIndex, find, transpose)
 import Data.Map (Map, (!))
-import qualified Data.Vector as DV
+import qualified Data.Vector as Vector
+import Data.Vector (Vector)
 import qualified Data.Map as Map
 import Data.Set (Set)
 import qualified Data.Set as Set
 
 import Data.GVASS
--- import Data.VASS.KarpMiller
--- import Data.VASS.KarpMiller.ExtendedNaturals
+import Data.VASS.Coverability.KarpMiller.ExtendedNaturals
+import Data.VASS.Coverability.KarpMiller.Shared
+import Data.VASS.Coverability.KarpMiller
 import Data.VASS
 
 import Data.Functor ((<&>))
@@ -29,16 +31,20 @@ import Data.Function ((&), on)
 import Control.Monad (when, forM)
 import Data.Foldable (foldrM, maximumBy)
 import Data.Ord (comparing)
-import Data.Maybe
+import Data.Maybe hiding (catMaybes)
+
+import Data.Tree (Tree(..))
+import qualified Data.Tree as Tree
 
 import Control.Monad.Trans as MTL
 import qualified Control.Monad.State as MTL
 import Control.Monad.Except
 
-import Utils
-import Text.Printf
-
 import Prelude hiding (reverse)
+
+import Data.Coerce
+
+import Text.Printf
 
 
 --------------------------------------------------------------------------------
@@ -163,7 +169,7 @@ buildILP Component{..} = do
     -- arbitrarily pump that place up.
     let coordRow coord = (lhs, rhs)
             where
-            transImages = map ((DV.! (coord-1)) . collapse . snd . snd) allTransitions
+            transImages = map ((Vector.! (coord-1)) . collapse . snd . snd) allTransitions
             unconstrained = 
                    map (\c -> if coord == c then  1 else 0) allInitCoords
                 ++ map (\c -> if coord == c then -1 else 0) allFinalCoords
@@ -295,8 +301,8 @@ refineθ₁ g@(GVASS components) ZeroTransition {..} = do
 
     -- For EACH component:
     -- Construct the Karp-Miller tree
-    let trees :: [(KMTree, KMTree)]
-        trees = map buildKMTree components
+    let trees :: [(KarpMillerTree, KarpMillerTree)]
+        trees = map buildKarpMillerTree components
     let indexedResults = zip3 [0..] components trees 
 
     -- Look for the first component which does not satisfy θ₁
@@ -304,10 +310,10 @@ refineθ₁ g@(GVASS components) ZeroTransition {..} = do
         firstFailM = listToMaybe $ mapMaybe isFail indexedResults
         
         -- What is our failure condition?
-        isFail :: (Int, Component, (KMTree, KMTree)) -> Maybe (Int, Direction, Int, Integer)
+        isFail :: (Int, Component, (KarpMillerTree, KarpMillerTree)) -> Maybe (Int, Direction, Coordinate, Integer)
         isFail (i, comp@Component{..}, (forwardTree, backwardTree)) = let
 
-            forwardPlace :: Maybe (Int, Direction, KMTree, Int)
+            forwardPlace :: Maybe (Int, Direction, KarpMillerTree, Coordinate)
             forwardPlace  = (i, Forward, forwardTree, ) . Set.findMin 
                     <$> findFullyBounded dimension forwardTree
             backwardPlace = (i, Backward, backwardTree, ) . Set.findMin 
@@ -317,10 +323,10 @@ refineθ₁ g@(GVASS components) ZeroTransition {..} = do
 
 
         -- Find the maximum value of the known constrained place
-        findMaximum :: (Int, Direction, KMTree, Int) -> (Int, Direction, Int, Integer)
+        findMaximum :: (Int, Direction, KarpMillerTree, Coordinate) -> (Int, Direction, Coordinate, Integer)
         findMaximum (i, dir, tree, coord) = (i, dir, coord, m)
-            where m = fromFinite . getPlace i 
-                    $ maximumBy (comparing (getPlace coord)) tree
+            where m = fromFinite . getPlace (fromIntegral coord)
+                    $ maximumBy (comparing (getPlace (fromIntegral coord))) tree
 
 
     -- If there is no such component, then θ₁ holds.
@@ -338,8 +344,8 @@ refineθ₁ g@(GVASS components) ZeroTransition {..} = do
 {-| With the Karp-Miller tree, we can actually test against a much stronger property:
      Iff we cannot hit (ω,ω,ω,...) then there is at least one place which is constrained EVERYWHERE.
 -}
-buildKMTree :: Component -> (KMTree, KMTree)
-buildKMTree Component{..} = do
+buildKarpMillerTree :: Component -> (KarpMillerTree, KarpMillerTree)
+buildKarpMillerTree Component{..} = do
 
     -- We have to reduce the dimensionality - we only want to consider the 
     -- constrained coordinates, for the purposes of θ₂.
@@ -347,60 +353,66 @@ buildKMTree Component{..} = do
     let 
         -- Convert the sparseVector into a simple vector, 
         -- ensuring the coordinates are in the right order
-        initial :: Configuration
-        initial = (initialState, DV.fromList $ snd <$> Map.toAscList initialVector)
+        initial :: Conf
+        initial = Configuration initialState (Vector.fromList $ Map.elems initialVector)
 
-        final :: Configuration
-        final   = (finalState, DV.fromList $ snd <$> Map.toAscList finalVector)
+        final :: Conf
+        final   = Configuration finalState (Vector.fromList $ Map.elems finalVector)
 
-        vassInitial = VASS {states = states, transitions = reducedTransitions}
+        vassInitial = VASS 
+                { dimension = fromIntegral $ Set.size initialConstrainedCoords
+                , states = states
+                , places = Vector.fromList 
+                         $ fmap (coerce . show)
+                         $ Set.toList initialConstrainedCoords 
+                , transitions = reducedTransitions
+                }
             where
-                reducedTransitions :: Map (Name State) [Transition]
-                reducedTransitions = map (second reduceTrans) <$> transitions 
+                reducedTransitions :: Map (Name State) (Vector Transition)
+                reducedTransitions = fmap reduceTrans <$> transitions 
                 
                 reduceTrans :: Transition -> Transition
-                reduceTrans (pre, post, nextState) = 
-                    ( project initialConstrainedCoords pre
-                    , project initialConstrainedCoords post
-                    , nextState
-                    )
+                reduceTrans t@Transition{..} = t
+                    { pre       = project initialConstrainedCoords pre
+                    , post      = project initialConstrainedCoords post
+                    }
 
-        vassFinal = reverse $ VASS {states = states, transitions = reducedTransitions}
+        vassFinal = reverse $ vassInitial { transitions = reducedTransitions }
             where
-                reducedTransitions :: Map (Name State) [Transition]
-                reducedTransitions = map (second reduceTrans) <$> transitions 
+                reducedTransitions :: Map (Name State) (Vector Transition)
+                reducedTransitions = fmap reduceTrans <$> transitions 
                 
                 reduceTrans :: Transition -> Transition
-                reduceTrans (pre, post, nextState) = 
-                    ( project finalConstrainedCoords pre
-                    , project finalConstrainedCoords post
-                    , nextState
-                    )
+                reduceTrans t@Transition{..} = t
+                    { pre       = project finalConstrainedCoords pre
+                    , post      = project finalConstrainedCoords post
+                    }
     
     (,)
-        (constructKarpMillerTree (initial, vassInitial))
-        (constructKarpMillerTree (final  , vassFinal))
+        (karpMillerTree initial vassInitial)
+        (karpMillerTree final   vassFinal)
 
 
 -- | Identify those coordinates which are bounded EVERYWHERE.
 -- (Kosaraju suggests that we can know that at least one coordinate is bounded in all runs.)
 -- This should terminate as soon as all omegas are found.
-findFullyBounded :: Int -> KMTree -> Maybe (Set Int)
+findFullyBounded :: Integer -> KarpMillerTree -> Maybe (Set Coordinate)
 findFullyBounded dimension tree = findFullyBounded' dimension tree [1..dimension]
     where 
-        findFullyBounded' :: Int -> KMTree -> (Set Int) -> Maybe (Set Int)
-        findFullyBounded' dimension (Node (ExtConf q vec) children) boundedCoords = do
+        findFullyBounded' :: Integer -> KarpMillerTree -> (Set Coordinate) -> Maybe (Set Coordinate)
+        findFullyBounded' dimension (Node (Configuration q vec) children) boundedCoords = do
 
-            let omegaCoords = Set.fromList $ DV.toList $ (+1) <$> DV.findIndices (== Omega) vec
+            let omegaCoords = Set.fromList 
+                     $  Vector.toList 
+                     $  (+1) 
+                    <$> fromIntegral 
+                    <$> Vector.findIndices (== Omega) vec
 
             let remainingCoords = boundedCoords Set.\\ omegaCoords 
 
             if Set.null remainingCoords 
             then Nothing
-            else foldM (flip (findFullyBounded' dimension)) remainingCoords (DV.toList children) 
-
-        findFullyBounded' dimension (DeadEnd (ExtConf q vec)) set = 
-            findFullyBounded' dimension (Node (ExtConf q vec) mempty) set
+            else foldM (flip (findFullyBounded' dimension)) remainingCoords children
 
 
 refineθ₂ :: GVASS -> ThetaTwoResult -> [GVASS]
@@ -460,16 +472,16 @@ runLDN rows = do
 
 
 data ThetaOneResult = ThetaOneHolds 
-                    | ZeroCoord      { cindex :: Int, coord :: Int             , maxVal :: Integer }
+                    | ZeroCoord      { cindex :: Int, coord :: Coordinate     , maxVal :: Integer }
                     | ZeroTransition { cindex :: Int, trans :: Name Transition, maxVal :: Integer }
-                    deriving (Eq, Ord, Show)
+                    deriving (Eq, Show)
 
 data ThetaOneVariable = Coord Int 
                       | Trans Transition
-                      deriving (Eq, Ord, Show)
+                      deriving (Eq, Show)
 
 data ThetaTwoResult = ThetaTwoHolds 
-                    | BoundedCoord { cindex :: Int, direction :: Direction, coord :: Int, maxVal :: Integer}
+                    | BoundedCoord { cindex :: Int, direction :: Direction, coord :: Coordinate, maxVal :: Integer}
         deriving (Eq, Show)
 
 data KosarajuResult = KosarajuHolds | KosarajuDoesNotHold
@@ -477,3 +489,29 @@ data KosarajuResult = KosarajuHolds | KosarajuDoesNotHold
 
 data Direction = Forward | Backward
         deriving (Eq, Show)
+
+
+
+--------------------------------------------------------------------------------
+-- Utility Functions
+
+project :: Eq a => Set Coordinate -> Vector a -> Vector a
+project set vec = catMaybes 
+        $ fmap (\(i,s) -> toMaybe ((i+1) `elem` set) s) 
+        $ fmap (first fromIntegral) 
+        $ Vector.indexed vec 
+
+
+{-# INLINE toMaybe #-}
+toMaybe :: Bool -> a -> Maybe a
+toMaybe False _ = Nothing
+toMaybe True  x = Just x
+
+
+catMaybes :: (Applicative f, Foldable f, Monoid (f a)) => f (Maybe a) -> f a
+catMaybes = mconcat . foldr poss []
+        where 
+            poss :: Applicative f => Maybe a -> [f a] -> [f a]
+            poss (Just x) s = pure x : s
+            poss Nothing  s = s
+
