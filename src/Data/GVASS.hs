@@ -1,16 +1,13 @@
-module Data.VASS.Generalised where
+module Data.GVASS where
 
 import Data.List ((\\), uncons, intersperse)
 import Data.Map  (Map, (!))
 import qualified Data.Map as Map
+import Data.Vector (Vector)
 import qualified Data.Vector as DV
 import qualified Data.List as List
 import Data.Set (Set)
 import qualified Data.Set as Set
-
-import Data.VASS.Shared
-import Data.VASS (VASS(VASS)) 
-import qualified Data.VASS as VASS
 
 import Prelude hiding (and, zipWith)
 
@@ -20,21 +17,23 @@ import Data.Coerce
 
 import Text.Printf
 
-import Data.VAS (VAS)
-import Data.VAS.Read (Spec(..))
+import Data.VASS.Coverability
+import Data.VASS
+import Data.VASS.Read
 
 data GVASS = GVASS [Component]
     deriving (Show)
 
-
+type Coordinate     = Integer
+type SparseVector a = Map Integer a
 
 -- | A Component is a single element of our GVASS. 
 data Component = Component
-    { dimension                  :: Int
-    , states                     :: [Label State]
-    , transitions                :: Map (Label State) [Labelled Transition]
-    , initialState               :: Label State
-    , finalState                 :: Label State
+    { dimension                  :: Integer
+    , states                     :: Vector (Name State)
+    , transitions                :: Map (Name State) (Vector Transition)
+    , initialState               :: Name State
+    , finalState                 :: Name State
     , rigidCoords                :: Set Coordinate
     , rigidValues                :: SparseVector Integer
     , initialConstrainedCoords   :: Set Coordinate
@@ -47,35 +46,31 @@ data Component = Component
     deriving (Show)
 
 
-generaliseSpec :: Spec -> GVASS
-generaliseSpec (Spec vas initial target) = let
-    vass = VASS.fromVAS vas
-    muState = head $ VASS.states vass
-    in generalise vass 
-        (muState, fromIntegral <$> initial) 
-        (muState, fromIntegral <$> target )
+generaliseSpec :: CovProblem -> GVASS
+generaliseSpec (CovProblem vass initial target) = generalise vass initial target
 
 
 -- | Lift a regular VASS so that it can be used in the generalised setting.
 -- | IE. take a VASS from "setting 1" to "setting 3" in Sławek's paper.
-generalise :: VASS -> Configuration -> Configuration -> GVASS
-generalise VASS{..} (iS, iV) (fS, fV) = GVASS
+generalise :: VASS -> Conf -> Conf -> GVASS
+generalise VASS{..} (Configuration iS iV) (Configuration fS fV) = GVASS
     [ Component
-        { dimension                  = length iV
+        { dimension                  = fromIntegral $ length iV
         , states                     = states
         , transitions                = transitions
         , initialState               = iS
         , finalState                 = fS
         , rigidCoords                = Set.empty
         , rigidValues                = Map.empty
-        , initialConstrainedCoords   = Set.fromList [1 .. length iV]
+        , initialConstrainedCoords   = Set.fromList range
         , initialUnconstrainedCoords = Set.empty
-        , finalConstrainedCoords     = Set.fromList [1 .. length iV]
+        , finalConstrainedCoords     = Set.fromList range
         , finalUnconstrainedCoords   = Set.empty
-        , initialVector              = Map.fromList $ zip [1..length iV] $ DV.toList iV
-        , finalVector                = Map.fromList $ zip [1..length iV] $ DV.toList fV
+        , initialVector              = Map.fromList $ zip range $ DV.toList iV
+        , finalVector                = Map.fromList $ zip range $ DV.toList fV
         }
     ]
+    where range = [1 .. fromIntegral $ length iV]
 
 -- | Replace some component in the VASS with a modified version, as specified by @modFunc.
 modifyComponent :: GVASS -> Int -> (Component -> Component) -> GVASS
@@ -150,9 +145,9 @@ setFinal vec c@Component{..} = c
 
 
 -- | Fully remove a transition from some component.
-removeTransition :: Label Transition -> Component -> Component
+removeTransition :: Name Transition -> Component -> Component
 removeTransition trans c@Component{..} = c
-        { transitions = Map.map (filter (\t -> fst t /= trans)) transitions
+        { transitions = Map.map (DV.filter (\(Transition name _ _ _) -> name /= trans)) transitions
         }
 
 -- | Remove ALL constraints over values.

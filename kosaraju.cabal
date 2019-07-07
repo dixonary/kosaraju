@@ -4,7 +4,7 @@ cabal-version: 1.12
 --
 -- see: https://github.com/sol/hpack
 --
--- hash: 9d063d1df41861d477b88e79989b9a8ec1f9e96d78ed1928f44b4eda09c15778
+-- hash: b4f950e62c68dd0225b4ab6026ef19ea28e34b656eda8fdbf9470c69ec9d4782
 
 name:           kosaraju
 version:        0.1.0.0
@@ -24,7 +24,8 @@ source-repository head
 
 library
   exposed-modules:
-      Data.VASS.Generalised
+      Data.GVASS
+      Data.GVASS.SCC
       Kosaraju
       Utils
   other-modules:

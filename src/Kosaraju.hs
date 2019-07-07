@@ -18,10 +18,9 @@ import qualified Data.Map as Map
 import Data.Set (Set)
 import qualified Data.Set as Set
 
-import Data.VASS.Generalised
-import Data.VASS.KarpMiller
-import Data.VASS.KarpMiller.ExtendedNaturals
-import Data.VASS.Shared
+import Data.GVASS
+-- import Data.VASS.KarpMiller
+-- import Data.VASS.KarpMiller.ExtendedNaturals
 import Data.VASS
 
 import Data.Functor ((<&>))
@@ -105,9 +104,8 @@ kosaraju' vs = do
     The pseudo-run also obeys the restrictions on constrained places at each known point.
 -}
 
-
 θ₁ :: GVASS -> IO ThetaOneResult
-θ₁ (GVASS components) = do
+θ₁ (GVASS components) =
     undefined
 
 {-
@@ -280,7 +278,7 @@ refineθ₁ g@(GVASS components) ZeroTransition {..} = do
 
 
 
-
+--------------------------------------------------------------------------------
 -- * θ₂
     
 {-| θ₂ is expressed as follows:
@@ -357,7 +355,7 @@ buildKMTree Component{..} = do
 
         vassInitial = VASS {states = states, transitions = reducedTransitions}
             where
-                reducedTransitions :: Map (Label State) [Labelled Transition]
+                reducedTransitions :: Map (Name State) [Transition]
                 reducedTransitions = map (second reduceTrans) <$> transitions 
                 
                 reduceTrans :: Transition -> Transition
@@ -369,7 +367,7 @@ buildKMTree Component{..} = do
 
         vassFinal = reverse $ VASS {states = states, transitions = reducedTransitions}
             where
-                reducedTransitions :: Map (Label State) [Labelled Transition]
+                reducedTransitions :: Map (Name State) [Transition]
                 reducedTransitions = map (second reduceTrans) <$> transitions 
                 
                 reduceTrans :: Transition -> Transition
@@ -463,11 +461,11 @@ runLDN rows = do
 
 data ThetaOneResult = ThetaOneHolds 
                     | ZeroCoord      { cindex :: Int, coord :: Int             , maxVal :: Integer }
-                    | ZeroTransition { cindex :: Int, trans :: Label Transition, maxVal :: Integer }
+                    | ZeroTransition { cindex :: Int, trans :: Name Transition, maxVal :: Integer }
                     deriving (Eq, Ord, Show)
 
 data ThetaOneVariable = Coord Int 
-                      | Trans (Label Transition)
+                      | Trans Transition
                       deriving (Eq, Ord, Show)
 
 data ThetaTwoResult = ThetaTwoHolds 

@@ -13,14 +13,13 @@ import Data.Function ((&))
 import Data.Bifunctor (Bifunctor, first, second)
 import Data.Monoid
 
--- Helper functions
+--------------------------------------------------------------------------------
+-- * Helper functions
 
 {-# INLINE toMaybe #-}
 toMaybe :: Bool -> a -> Maybe a
 toMaybe False _ = Nothing
 toMaybe True  x = Just x
-
-
 
 project :: Eq a => Set Int -> DV.Vector a -> DV.Vector a
 project set vec = catMaybes 
