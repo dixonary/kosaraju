@@ -4,7 +4,7 @@ import Data.List ((\\), uncons, intersperse)
 import Data.Map  (Map, (!))
 import qualified Data.Map as Map
 import Data.Vector (Vector)
-import qualified Data.Vector as DV
+import qualified Data.Vector as Vector
 import qualified Data.List as List
 import Data.Set (Set)
 import qualified Data.Set as Set
@@ -21,11 +21,16 @@ import Data.VASS.Coverability
 import Data.VASS
 import Data.VASS.Read
 
-data GVASS = GVASS [Component]
-    deriving (Show)
+newtype GVASS = GVASS [Component]
+    deriving (Show, Eq)
+
+unGVASS :: GVASS -> [Component]
+unGVASS (GVASS cs) = cs
+
 
 type Coordinate     = Integer
 type SparseVector a = Map Integer a
+
 
 -- | A Component is a single element of our GVASS. 
 data Component = Component
@@ -42,8 +47,9 @@ data Component = Component
     , finalUnconstrainedCoords   :: Set Coordinate
     , initialVector              :: SparseVector Integer
     , finalVector                :: SparseVector Integer
+    , adjoinment                 :: Maybe (SparseVector Integer)
     }
-    deriving (Show)
+    deriving (Show, Eq)
 
 
 generaliseSpec :: CovProblem -> GVASS
@@ -66,8 +72,9 @@ generalise VASS{..} (Configuration iS iV) (Configuration fS fV) = GVASS
         , initialUnconstrainedCoords = Set.empty
         , finalConstrainedCoords     = Set.fromList range
         , finalUnconstrainedCoords   = Set.empty
-        , initialVector              = Map.fromList $ zip range $ DV.toList iV
-        , finalVector                = Map.fromList $ zip range $ DV.toList fV
+        , initialVector              = Map.fromList $ zip range $ Vector.toList iV
+        , finalVector                = Map.fromList $ zip range $ Vector.toList fV
+        , adjoinment                 = Nothing
         }
     ]
     where range = [1 .. fromIntegral $ length iV]
@@ -143,11 +150,14 @@ setFinal vec c@Component{..} = c
         }
         where coords = Set.fromList $ Map.keys vec
 
+setAdjoinment :: Maybe (SparseVector Integer) -> Component -> Component
+setAdjoinment vec c@Component{..} = c { adjoinment = vec }
+
 
 -- | Fully remove a transition from some component.
 removeTransition :: Name Transition -> Component -> Component
 removeTransition trans c@Component{..} = c
-        { transitions = Map.map (DV.filter (\(Transition name _ _ _) -> name /= trans)) transitions
+        { transitions = Map.map (Vector.filter (\(Transition name _ _ _) -> name /= trans)) transitions
         }
 
 -- | Remove ALL constraints over values.
@@ -160,6 +170,22 @@ unconstrainAll c@Component{..} = c
         , initialVector              = Map.empty
         , finalVector                = Map.empty
         }
+
+
+instance {-# OVERLAPS #-} Show a => Show (Map a Integer) where
+    show map = concat
+         $  ["{"]
+         ++ intersperse "," [ show a ++ " => " ++ show b | (a,b) <- Map.toList map ]
+         ++ ["}"]
+
+instance {-# OVERLAPS #-} Show (Set Integer) where
+    show set = case length set of
+        0 -> "empty"
+        _ ->
+            "{"
+         ++ unwords (show <$> Set.toList set)
+         ++ "}"
+
 
 
 
@@ -176,3 +202,17 @@ instance TotalComponents GVASS     where
     totalComponents (GVASS components) = length components
 instance TotalComponents [GVASS]   where 
     totalComponents                    = sum . map totalComponents
+
+
+
+-- Get only the (dense) delta resulting from the application of the transition.
+flatten :: Transition -> Vector Integer
+flatten (Transition name pre post nextState) = Vector.zipWith (-) post pre
+
+-- Convert a dense vector into a sparse one, where zeroes will be omitted.
+makeSparseCoords :: Vector Integer -> SparseVector Coordinate
+makeSparseCoords vs = Map.fromList 
+        [ (fromIntegral i + 1, j)
+        | (i,j) <- Vector.toList $ Vector.indexed vs
+        , j /= 0
+        ]

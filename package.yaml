@@ -24,6 +24,7 @@ dependencies:
 - pretty-simple
 - vass
 - karp-miller
+- text
 
 
 default-extensions:
@@ -32,11 +33,13 @@ default-extensions:
 - UnicodeSyntax
 - RecordWildCards
 - OverloadedStrings
+- OverloadedLists
 - QuasiQuotes
 - LambdaCase
 - MultiWayIf
 - TupleSections
 - DuplicateRecordFields
+- BangPatterns
 
 name: kosaraju
 version: 0.1.0.0

@@ -4,22 +4,21 @@ An implementation of Kosaraju's famous algorithm which implements
 the Reachability decision problem over Vector Addition Systems with States.
 -}
 
-{-# LANGUAGE OverloadedLists #-}
-
 module Kosaraju where
 
 import Data.SBV
-import Documentation.SBV.Examples.Existentials.Diophantine (ldn, Solution(..))
+import Documentation.SBV.Examples.Existentials.Diophantine (ldn, basis, Solution(..))
 
-import Data.List ((\\), elemIndex, find, transpose)
-import Data.Map (Map, (!))
+import Data.List ((\\), elemIndex, find, transpose, concat, concatMap)
+import Data.Map.Strict (Map)
 import qualified Data.Vector as Vector
 import Data.Vector (Vector)
-import qualified Data.Map as Map
+import qualified Data.Map.Strict as Map
 import Data.Set (Set)
 import qualified Data.Set as Set
 
 import Data.GVASS
+import Data.GVASS.SCC
 import Data.VASS.Coverability.KarpMiller.ExtendedNaturals
 import Data.VASS.Coverability.KarpMiller.Shared
 import Data.VASS.Coverability.KarpMiller
@@ -40,18 +39,20 @@ import Control.Monad.Trans as MTL
 import qualified Control.Monad.State as MTL
 import Control.Monad.Except
 
+import System.IO.Unsafe
+
 import Prelude hiding (reverse)
 
 import Data.Coerce
-
+import Text.Pretty.Simple
+import Debug.Trace
 import Text.Printf
 
 
 --------------------------------------------------------------------------------
 -- * TODO:
 
--- 1. Strongly connected component decomposition
--- 2. Restructure θ₁ to account for the entire system simultaneously
+-- 1. Bug fixing
 
 --------------------------------------------------------------------------------
 -- * Kosaraju's Algorithm
@@ -69,34 +70,54 @@ kosaraju g = kosaraju' [g]
     for the original GVASS.
 -}
 kosaraju' :: [GVASS] -> IO KosarajuResult
-kosaraju' vs = do
+kosaraju' vs' = do
+    -- Ensure that the GVASSs are all fully decomposed by the SCC decomposition.
+    let vs = concatMap decompGVASS vs'
+
     -- Check θ₁,θ₂  for ALL vasses
     -- If it fails, then refine or give up if it cannot be refined
-    results <- forM vs $ \gvass -> do
-        thetaOne <- θ₁ gvass
-        thetaTwo <- θ₂ gvass
+    let checkVASS gvass = do
+            -- pPrint gvass
+            thetaOne <- θ₁ gvass
+            thetaTwo <- θ₂ gvass
 
-        case (thetaOne, thetaTwo) of
+            putStrLn ""
 
-            (ThetaOneHolds, ThetaTwoHolds) -> return KosarajuHolds
+            case (thetaOne, thetaTwo) of
 
-            (ThetaOneHolds, thetaTwoError) -> do
-                    let refinedVs = refineθ₂ gvass thetaTwoError
+                (ThetaOneHolds, ThetaTwoHolds) -> do
+                    putStrLn "Kosaraju holds!" 
+                    return $ KosarajuHolds gvass
+
+                (ThetaOneHolds, thetaTwoError) -> do
+                    putStrLn "Theta one holds!"
+                    print thetaTwoError
+                    refinedVs <- refineθ₂ gvass thetaTwoError
                     case refinedVs of
-                        [_] -> return KosarajuDoesNotHold
+                        [g] | g == gvass -> return KosarajuDoesNotHold
                         _   -> kosaraju' refinedVs
 
-            (thetaOneError, _            ) -> do
-                    let refinedVs = refineθ₁ gvass thetaOneError
+                (thetaOneError, _            ) -> do
+                    print thetaOneError
+                    refinedVs <- refineθ₁ gvass thetaOneError
                     case refinedVs of
-                        [_] -> return KosarajuDoesNotHold
+                        [g] | g == gvass -> return KosarajuDoesNotHold
                         _   -> kosaraju' refinedVs
-            
+
+
+        mgood :: [GVASS] -> IO KosarajuResult
+        mgood []  = return $ KosarajuHolds $ GVASS []
+        mgood [g] = checkVASS g
+        mgood (g:xs) = do
+            res <- checkVASS g
+            case res of
+                KosarajuHolds gvass -> return $ KosarajuHolds gvass
+                KosarajuDoesNotHold -> mgood xs
 
     -- If ANY of our GVASSs validate θ, then we retire happy
-    return $ if KosarajuHolds `elem` results
-        then KosarajuHolds
-        else KosarajuDoesNotHold
+    mgood vs
+
+
 
 
 --------------------------------------------------------------------------------
@@ -107,131 +128,203 @@ kosaraju' vs = do
     in every component at least M times (for unbounded M) and gets from the start
     in the first component to the end in the final component.
 
-    The pseudo-run also obeys the restrictions on constrained places at each known point.
+    The pseudo-run also obeys the restrictions on constrained places at each known point,
+    and includes the full adjoinments in every run.
 -}
 
 θ₁ :: GVASS -> IO ThetaOneResult
-θ₁ (GVASS components) =
-    undefined
+θ₁ gvass@(GVASS components) = do
 
-{-
     -- 1. Construct ILP problem.
     -- Finding unbounded solutions in the non-homo case is the same as 
     -- finding any solution in the homo (RHS zeroes) case.
-    results <- mapM buildILP components
-    let indexedResults = zip3 [0..] components results
 
-    -- Look for the first component which does not satisfy θ₁
-    let 
-        firstFailM = listToMaybe $ mapMaybe isFail indexedResults
+    -- We should not expect to see the homo case.
+    res <- runILP gvass
+    case res of
+        Nothing -> return ThetaOneHasNoSolutions
+        Just (vars, bpByVar) -> do
 
-        -- We have a fail on any variable where all values are zero.
-        isFail ( i, comp, r@(v, b, p) ) = 
-            case find (\(v,p) -> all (== 0) p) periodsByVar
-            of
-                Nothing             -> Nothing
-                Just (name, zeroes) -> Just (i, name, maximum $ basesByVar ! name)
-                
-            where
-                periodsByVar = zip v $ transpose p
-                basesByVar   = Map.fromList $ zip v $ transpose b
+        -- 2. Find the first thing which violates the theta-one condition.
+        let firstFailM = listToMaybe $ filter isFail vars
+                where isFail var = all (== 0) $ snd $ bpByVar Map.! var
 
-    -- If there is no such component, then θ₁ holds.
-    -- Otherwise, we report it back so that we can refine on it.
-    case firstFailM of
-        Nothing -> return ThetaOneHolds
-        Just (cindex, failVar, maxVal) ->
-            case failVar of
-                Coord i -> return $ ZeroCoord      cindex i maxVal
-                Trans t -> return $ ZeroTransition cindex t maxVal
+        let maxVal var   = maximum $ fst $ bpByVar Map.! var
 
+        return $ case firstFailM of
+            Nothing  -> ThetaOneHolds
+            Just var -> ThetaOneFails var (maxVal var)
+
+
+
+
+data VarPosition = Initial | Final
+    deriving (Eq, Ord, Show)
+data ILPVar = ILPCoord Int VarPosition Coordinate | ILPTrans Int (Name Transition)
+    deriving (Eq, Ord, Show)
 
 
 {-| Given a component, generate and evaluate the Integer Linear Programming
     problem representing θ₁ for that component. We return the basis and the
     period of the solution for that component, which is interpreted separately.
 -}
-buildILP :: Component -> IO ([ThetaOneVariable], [[Integer]], [[Integer]])
-buildILP Component{..} = do
+runILP :: GVASS -> IO ( Maybe ( [ILPVar], Map ILPVar ([Integer], [Integer]) ) )
+runILP (GVASS components) = do
 
-    let allTransitions = concatMap (\(s,ts) -> map ((,) s) ts)
-                       $ Map.toList transitions
+    let 
+        allVars :: [(Map ILPVar Integer, Integer)]
+        allVars = (concat :: [[a]] -> [a])
+            [ concat $ parikhImageConstraints      <$> zip [0..] components
+            , concat $ kirchoffConstraints         <$> zip [0..] components
+            , concat $ constrainedValueConstraints <$> zip [0..] components
+            , concat $ rigidValueConstraints       <$> zip [0..] components
+            , concat $ adjoinmentConstraints       <$> zip [0..] components
+            ]
 
-        allInitCoords  = Set.toList initialUnconstrainedCoords
-        allFinalCoords = Set.toList finalUnconstrainedCoords
+        -- The initial value of each place, plus the delta of each transition
+        -- times the number of activations, equals the final value.
+        parikhImageConstraints :: (Int, Component) -> [(Map ILPVar Integer, Integer)]
+        parikhImageConstraints (compIndex, comp@Component{..}) = 
+            let
+                flattenedTrans :: Map (Name State) (Vector Transition) -> [(Name Transition, [Integer])]
+                flattenedTrans = Vector.toList
+                            . fmap (\trans -> (Data.VASS.name trans, Vector.toList $ flatten trans)) 
+                            . Vector.concat 
+                            . Map.elems
 
-    -- One row in our ILP problem per coordinate of vector
-    -- The total change in each coordinate must equal the difference 
-    -- between our starting and ending values.
-    -- If our place is unconstrained in the input, we must be able to
-    -- arbitrarily pump that place down.
-    -- If our place is unconstrained in the output, we must be able to
-    -- arbitrarily pump that place up.
-    let coordRow coord = (lhs, rhs)
-            where
-            transImages = map ((Vector.! (coord-1)) . collapse . snd . snd) allTransitions
-            unconstrained = 
-                   map (\c -> if coord == c then  1 else 0) allInitCoords
-                ++ map (\c -> if coord == c then -1 else 0) allFinalCoords
+                pairUp :: Functor f => (a, f b) -> f (a, b)
+                pairUp (a, b) = fmap (a,) b
 
-            lhs = transImages ++ unconstrained
+                fTrans :: [[(ILPVar, Integer)]]
+                fTrans = fmap pairUp $ first (ILPTrans compIndex) <$> flattenedTrans transitions
 
-            i = Map.findWithDefault 0 coord initialVector
-            f = Map.findWithDefault 0 coord finalVector
+                allValues :: [[(ILPVar, Integer)]]
+                allValues = fTrans ++ 
+                    [ [(ILPCoord compIndex Initial i, 1) | i <- [1..dimension]]
+                    , [(ILPCoord compIndex Final   i,-1) | i <- [1..dimension]]
+                    ]
+                
+                transposedValues = Data.List.transpose allValues
 
-            rhs = f - i
-
-        coordRows = coordRow <$> [1..dimension]
-
-
-    -- One row in our ILP per state
-    -- Kirchoff's law ie inbound = outbound, modulo start/end
-    -- Inbound = -1; Outbound = +1
-    let stateRow state = (lhs, rhs) 
-            where
-
-            transWeight t = inWeight + outWeight
-                where
-                inWeight   = if nextState (snd (snd t)) == state then -1 else 0
-                outWeight  = if fst t                   == state then  1 else 0
-
-            transWeights = map transWeight allTransitions
-
-            unconstrained = flip replicate 0 $
-                  Set.size initialUnconstrainedCoords 
-                + Set.size finalUnconstrainedCoords
-
-            lhs = transWeights ++ unconstrained
-
-            i = if initialState  == state then  1 else 0
-            f = if finalState    == state then -1 else 0
-
-            rhs = f + i
-
-        stateRows = stateRow <$> states
-
-    let rows = coordRows   ++ stateRows
+            in (,0) . Map.fromList <$> transposedValues
 
 
-    let cols = transitionNames ++ initialIndices ++ finalIndices
-            where transitionNames = Trans . fst <$> concat (Map.elems transitions)
-                  initialIndices  = Coord <$> allInitCoords
-                  finalIndices    = Coord <$> allFinalCoords
+        kirchoffConstraints :: (Int, Component) -> [(Map ILPVar Integer, Integer)]
+        kirchoffConstraints (compIndex, comp@Component{..}) = 
+            let
+                adjacencyVal :: Name State -> (Name State, Transition) -> Integer
+                adjacencyVal state (prevState, Transition name pre post nextState)
+                    = 0
+                    + (if state == prevState then   1 else 0)
+                    + (if state == nextState then (-1) else 0) 
 
-    putStrLn "Coordinate Rows:"
-    mapM_ (printf "    %s\n" . show) coordRows
-    putStrLn ""
+                pairedTransitions :: [(Name State, Transition)]
+                pairedTransitions = decollate transitions
 
-    putStrLn "State Rows:"
-    mapM_ (printf "    %s\n" . show) stateRows
-    putStrLn ""
+                transVarsWithAdjacency :: Name State -> [(ILPVar, Integer)]
+                transVarsWithAdjacency s = (\(ns,t) -> (ILPTrans compIndex (Data.VASS.name t), adjacencyVal s (ns,t))) <$> pairedTransitions
 
-    -- TODO: Rework so that we get labelled transitions and labelled coords
-    (b, p) <- runLDN rows
+                stateVal :: Name State -> Integer
+                stateVal state
+                    = 0
+                    + (if state == initialState then   1 else 0)
+                    + (if state == finalState   then (-1) else 0)
 
-    return (cols, b, p)
 
--}
+            in (\state -> (Map.fromList $ transVarsWithAdjacency state, stateVal state)) <$> Vector.toList states
+
+        constrainedValueConstraints :: (Int, Component) -> [(Map ILPVar Integer, Integer)]
+        constrainedValueConstraints (compIndex, comp@Component{..}) =
+            let
+                initialConstraints = flip fmap (Set.toList initialConstrainedCoords)
+                    $ \coord -> (Map.singleton (ILPCoord compIndex Initial coord) 1, initialVector Map.! coord)
+
+                finalConstraints   = flip fmap (Set.toList finalConstrainedCoords)
+                    $ \coord -> (Map.singleton (ILPCoord compIndex Final coord) 1, finalVector Map.! coord)
+
+            in initialConstraints ++ finalConstraints
+
+        rigidValueConstraints :: (Int, Component) -> [(Map ILPVar Integer, Integer)]
+        rigidValueConstraints (compIndex, comp@Component{..}) = concat 
+            [
+                [ (Map.singleton (ILPCoord compIndex Initial coord) 1, val)
+                , (Map.singleton (ILPCoord compIndex Final   coord) 1, val)
+                ]
+            | coord <- Set.toList rigidCoords
+            , let val = rigidValues Map.! coord 
+            ]
+
+        adjoinmentConstraints :: (Int, Component) -> [(Map ILPVar Integer, Integer)]
+        adjoinmentConstraints (compIndex, comp@Component{..}) =
+            case adjoinment of
+            Nothing         -> []
+            Just adjoinment ->  
+                (\(coord, delta) -> (
+                    Map.fromList 
+                        [ (ILPCoord  compIndex    Final   coord, -1)
+                        , (ILPCoord (compIndex+1) Initial coord,  1)
+                        ]
+                    , delta)
+                ) <$> zip [1..dimension] (makeDense adjoinment [1..dimension])
+
+                    
+        varsList :: [ILPVar]
+        varsList = (concat :: [[a]] -> [a])
+            [ (concat :: [[a]] -> [a]) 
+                [ ILPCoord i Initial <$> [1..dimension]
+                , ILPCoord i Final   <$> [1..dimension]
+                , transitions
+                    & Map.elems 
+                    & map Vector.toList
+                    & concat
+                    & map Data.VASS.name
+                    & map (ILPTrans i)
+                ]
+            | (i, comp@Component{..}) <- zip [0..] components
+            ]
+
+        allVarsDense = first (`makeDense` varsList) <$> allVars
+
+    -- putStrLn "=====THETA1 INPUT====="
+    -- pPrint $ allVars
+    -- putStrLn "=====THETA1 INPUT (RAW)====="
+    -- pPrint $ allVarsDense
+
+
+    results <- ldn Nothing allVarsDense
+    
+    let (bases, periods) = case results of
+            Homogeneous      p -> ([], p)
+            NonHomogeneous b p -> (b , p)
+
+        varBasesOrNothing   = transpose bases   ++ repeat []
+        varPeriodsOrNothing = transpose periods ++ repeat [0]
+
+        isRelevant:: ILPVar -> Bool
+        isRelevant = (\case
+            ILPCoord compIndex Initial coord | coord `elem` (initialUnconstrainedCoords $ components !! compIndex) -> True
+            ILPCoord compIndex Final   coord | coord `elem` (  finalUnconstrainedCoords $ components !! compIndex) -> True
+            ILPTrans _         _                                                                                   -> True
+            _                                                                                                      -> False
+            )
+
+    -- putStrLn "=====THETA1 RESULTS====="
+    -- pPrint
+    --     ( filter isRelevant varsList
+    --     , Map.filterWithKey (\k a -> isRelevant k)
+    --         $ Map.fromList 
+    --         $ zip varsList $ zip varBasesOrNothing varPeriodsOrNothing
+    --     )
+        
+    return $ case (bases, periods) of
+        ([], _)  -> Nothing
+        _        -> Just 
+                    ( filter isRelevant varsList
+                    , Map.filterWithKey (\k a -> isRelevant k)
+                        $ Map.fromList 
+                        $ zip varsList $ zip varBasesOrNothing varPeriodsOrNothing
+                    )
+
 
 
 
@@ -243,44 +336,51 @@ buildILP Component{..} = do
     If some coordinate c has no period, it cannot be unbounded; we replace the GVASS 
     with (n+1) copies, each having c as initially constrained to [0..n].
 -}
-refineθ₁ :: GVASS -> ThetaOneResult -> [GVASS]
-refineθ₁ g@(GVASS components) ThetaOneHolds  = error "Theta one holds!"
-refineθ₁ g@(GVASS components) ZeroCoord {..} = do
+refineθ₁ :: GVASS -> ThetaOneResult -> IO [GVASS]
+
+-- Don't bother if there are no solutions
+refineθ₁ g ThetaOneHasNoSolutions = return [g]
+
+refineθ₁ g@(GVASS components) (ThetaOneFails (ILPCoord cindex pos coord) maxVal) = do
     let component@Component{..} = components !! cindex
 
-    -- We need different behaviour if the vertex was initially vs finally unconstrained
-    if 
-        | coord `elem` initialUnconstrainedCoords ->
+    case pos of 
+        Initial -> do
+            putStrLn "Refining by constraining on all possible initial values..."
         -- Refine by all possible constraints on initial coordinate
-            [ modifyComponent g cindex (constrainInitial coord val) | val <- [0..maxVal] ]
+            return [ modifyComponent g cindex (constrainInitial coord val) | val <- [0..maxVal] ]
 
-        | coord `elem` finalUnconstrainedCoords ->
+        Final -> do
+            putStrLn "Refining by constraining on all possible final values..."
         -- Refine by all possible constraints on final coordinate
-            [ modifyComponent g cindex (constrainFinal coord val) | val <- [0..maxVal] ]
+            return [ modifyComponent g cindex (constrainFinal coord val) | val <- [0..maxVal] ]
 
-        -- Something's gone wrong!
-        | otherwise
-            -> error $ unlines $ 
-                [ "Tried to constrain a coordinate which was not unconstrained!" 
-                , show g
-                , show (ZeroCoord{..})
-                ]
     
-refineθ₁ g@(GVASS components) ZeroTransition {..} = do
+refineθ₁ g@(GVASS components) (ThetaOneFails (ILPTrans cindex tname) maxVal) = do
+    putStrLn "Refining by exploding a bounded transition..."
 
     let c@Component{..} = components !! cindex
 
-    let
+        Just transition = Data.List.find (\(Transition tn _ _ _) -> tn == tname)
+                        $ Data.List.concatMap Vector.toList
+                        $ Map.elems transitions
+
+        tSparse = makeSparseCoords $ flatten transition
+
+        applyToAllButLast f (x:y:xs) = f x : applyToAllButLast f (y:xs)
+        applyToAllButLast f ls       = ls
+
         makeChain i component = case i of
-            0 -> [component]
-            n -> [setInitial initialVector freeComponent]
+            0 -> [component']
+            n -> applyToAllButLast (setAdjoinment (Just tSparse))
+                $  [setInitial initialVector freeComponent]
                 ++ replicate (fromIntegral n - 1) freeComponent
                 ++ [setFinal finalVector freeComponent]
 
             where freeComponent = unconstrainAll component'
-                  component'    = removeTransition trans component
+                  component'    = removeTransition tname component
 
-    map (\i -> expandComponent g cindex (makeChain i)) [0..maxVal]
+    return $ map (\i -> expandComponent g cindex (makeChain i)) [0..maxVal]
 
 
 
@@ -309,24 +409,36 @@ refineθ₁ g@(GVASS components) ZeroTransition {..} = do
     let 
         firstFailM = listToMaybe $ mapMaybe isFail indexedResults
         
-        -- What is our failure condition?
+        -- TODO: Tidy this up (but it seems correct now)
         isFail :: (Int, Component, (KarpMillerTree, KarpMillerTree)) -> Maybe (Int, Direction, Coordinate, Integer)
         isFail (i, comp@Component{..}, (forwardTree, backwardTree)) = let
 
-            forwardPlace :: Maybe (Int, Direction, KarpMillerTree, Coordinate)
-            forwardPlace  = (i, Forward, forwardTree, ) . Set.findMin 
-                    <$> findFullyBounded dimension forwardTree
-            backwardPlace = (i, Backward, backwardTree, ) . Set.findMin 
-                    <$> findFullyBounded dimension backwardTree
+            isBoring = Vector.length states == 1 && Vector.null (mconcat $ Map.elems transitions)
 
-            in findMaximum <$> (forwardPlace >> backwardPlace)
+            forwardPlace  = (i, Forward, forwardTree, ) . minimum
+                    <$> Set.toList
+                    <$> findFullyBounded (fromIntegral $ Set.size initialConstrainedCoords) forwardTree
+
+            backwardPlace = (i, Backward, backwardTree, ) . minimum
+                    <$> Set.toList
+                    <$> findFullyBounded (fromIntegral $ Set.size finalConstrainedCoords) backwardTree
+
+            in  if isBoring then trace("component "++ show i ++" is boring") Nothing else (forwardPlace >> backwardPlace)
+                <&> findMaximum
+                <&> \(compIndex, dir, coord, maxVal) -> case dir of
+                    Forward   -> (compIndex, dir, Set.toList initialConstrainedCoords !! (fromIntegral coord - 1), maxVal)
+                    Backward  -> (compIndex, dir, Set.toList   finalConstrainedCoords !! (fromIntegral coord - 1), maxVal)
 
 
         -- Find the maximum value of the known constrained place
         findMaximum :: (Int, Direction, KarpMillerTree, Coordinate) -> (Int, Direction, Coordinate, Integer)
         findMaximum (i, dir, tree, coord) = (i, dir, coord, m)
-            where m = fromFinite . getPlace (fromIntegral coord)
-                    $ maximumBy (comparing (getPlace (fromIntegral coord))) tree
+            where m = fromFinite . getP coord
+                    $ maximumBy (comparing (getP coord)) tree
+
+        getP :: Coordinate -> ExtConf -> Nat
+        getP coord conf = vec conf Vector.! (fromIntegral coord - 1)
+    -- pPrint firstFailM
 
 
     -- If there is no such component, then θ₁ holds.
@@ -337,7 +449,7 @@ refineθ₁ g@(GVASS components) ZeroTransition {..} = do
             { cindex    = i
             , direction = direction
             , coord     = coord
-            , maxVal = maxVal
+            , maxVal    = maxVal
             } 
 
 
@@ -358,6 +470,16 @@ buildKarpMillerTree Component{..} = do
 
         final :: Conf
         final   = Configuration finalState (Vector.fromList $ Map.elems finalVector)
+    
+    
+        reducedTransitions :: Set Coordinate -> Map (Name State) (Vector Transition)
+        reducedTransitions s = fmap (reduceTrans s) <$> transitions 
+            where
+                reduceTrans :: Set Coordinate -> Transition -> Transition
+                reduceTrans s t@Transition{..} = t
+                    { pre       = project s pre
+                    , post      = project s post
+                    }
 
         vassInitial = VASS 
                 { dimension = fromIntegral $ Set.size initialConstrainedCoords
@@ -365,28 +487,17 @@ buildKarpMillerTree Component{..} = do
                 , places = Vector.fromList 
                          $ fmap (coerce . show)
                          $ Set.toList initialConstrainedCoords 
-                , transitions = reducedTransitions
+                , transitions = reducedTransitions initialConstrainedCoords
                 }
-            where
-                reducedTransitions :: Map (Name State) (Vector Transition)
-                reducedTransitions = fmap reduceTrans <$> transitions 
-                
-                reduceTrans :: Transition -> Transition
-                reduceTrans t@Transition{..} = t
-                    { pre       = project initialConstrainedCoords pre
-                    , post      = project initialConstrainedCoords post
-                    }
 
-        vassFinal = reverse $ vassInitial { transitions = reducedTransitions }
-            where
-                reducedTransitions :: Map (Name State) (Vector Transition)
-                reducedTransitions = fmap reduceTrans <$> transitions 
-                
-                reduceTrans :: Transition -> Transition
-                reduceTrans t@Transition{..} = t
-                    { pre       = project finalConstrainedCoords pre
-                    , post      = project finalConstrainedCoords post
-                    }
+        vassFinal = reverse $ VASS 
+                { dimension = fromIntegral $ Set.size finalConstrainedCoords 
+                , states = states
+                , places = Vector.fromList
+                        $ fmap (coerce.show)
+                        $ Set.toList finalConstrainedCoords
+                , transitions = reducedTransitions finalConstrainedCoords
+                }
     
     (,)
         (karpMillerTree initial vassInitial)
@@ -397,17 +508,12 @@ buildKarpMillerTree Component{..} = do
 -- (Kosaraju suggests that we can know that at least one coordinate is bounded in all runs.)
 -- This should terminate as soon as all omegas are found.
 findFullyBounded :: Integer -> KarpMillerTree -> Maybe (Set Coordinate)
-findFullyBounded dimension tree = findFullyBounded' dimension tree [1..dimension]
+findFullyBounded dimension tree = findFullyBounded' dimension tree (Set.fromList [1..dimension])
     where 
         findFullyBounded' :: Integer -> KarpMillerTree -> (Set Coordinate) -> Maybe (Set Coordinate)
         findFullyBounded' dimension (Node (Configuration q vec) children) boundedCoords = do
 
-            let omegaCoords = Set.fromList 
-                     $  Vector.toList 
-                     $  (+1) 
-                    <$> fromIntegral 
-                    <$> Vector.findIndices (== Omega) vec
-
+            let omegaCoords     = coordsWhere (== Omega) vec
             let remainingCoords = boundedCoords Set.\\ omegaCoords 
 
             if Set.null remainingCoords 
@@ -415,77 +521,140 @@ findFullyBounded dimension tree = findFullyBounded' dimension tree [1..dimension
             else foldM (flip (findFullyBounded' dimension)) remainingCoords children
 
 
-refineθ₂ :: GVASS -> ThetaTwoResult -> [GVASS]
-refineθ₂ g@(GVASS components) ThetaTwoHolds    = error "Theta two holds!"
+refineθ₂ :: GVASS -> ThetaTwoResult -> IO [GVASS]
 refineθ₂ g@(GVASS components) BoundedCoord{..} = let
-    Component{..} = components !! cindex
+    comp@Component{..} = components !! cindex
     in case direction of
 
-        {- Process for "forwards" bound:
-            Suppose `coord` is final unconstrained:
-                Then fix its value to maxVal and make no other changes.
-            Suppose 'coord' is final constrained:
-                Then replace the component with TWO components
-
-        Process for "backwards" bound:
-            Exactly the same but s/final/initial
-        -} 
-
         Forward ->
-            if  | coord `elem` finalUnconstrainedCoords ->
-                    [ modifyComponent g cindex (constrainFinal coord c) | c <- [0..maxVal] ]
-                | coord `elem` finalConstrainedCoords   ->
-                    []    -- TODO
+            if  | coord `elem` finalUnconstrainedCoords -> do
+                    putStrLn "Refining by constraining on all possible final values..."
+                    return [ modifyComponent g cindex (constrainFinal coord c) | c <- [0..maxVal] ]
+                | coord `elem` finalConstrainedCoords   -> do
+                    putStrLn "Refining by bounding the place inside the component..."
+                    putStrLn $ printf "   Bounding %d to [0..%d]" coord maxVal
+                    return [ expandComponent g cindex $ boundCoord coord maxVal ]
                 | otherwise -> 
-                    error $ "Place " ++ show cindex ++ " was neither final constrained nor unconstrained?"
+                    error $ "Place " ++ show cindex ++ " was neither final constrained nor unconstrained"
         Backward -> 
-            if  | coord `elem` initialUnconstrainedCoords ->
-                    [ modifyComponent g cindex (constrainFinal coord c) | c <- [0..maxVal] ]
-                | coord `elem` initialConstrainedCoords ->
-                    []     -- TODO
+            if  | coord `elem` initialUnconstrainedCoords -> do
+                    putStrLn "Refining by constraining on all possible initial values..."
+                    return [ modifyComponent g cindex (constrainInitial coord c) | c <- [0..maxVal] ]
+                | coord `elem` initialConstrainedCoords -> do
+                    putStrLn "Refining by bounding the place inside the component..."
+                    putStrLn $ printf "   Bounding %d to [0..%d]" coord maxVal
+                    return [ expandComponent g cindex $ boundCoord coord maxVal ]
                 | otherwise -> 
-                    error $ "Place " ++ show cindex ++ " was neither initial constrained nor unconstrained?"
+                    error $ "Place " ++ show cindex ++ " was neither initial constrained nor unconstrained"
 
--- | Given a set of rows, print and return the basis and the period.
-runLDN :: [([Integer], Integer)] -> IO ([[Integer]], [[Integer]])
-runLDN rows = do
-    res <- ldn Nothing rows
 
-    let (b,p) = case res of 
-            Homogeneous p      -> ([], p)
-            NonHomogeneous b p -> (b , p)
 
-    let noSolution = null b || null p
 
-    when noSolution $ putStrLn "There is no solution."
-    when (b /= [])  $ do
-        putStrLn "Bases:"
-        mapM_ (printf "    %s\n" . show) b
-    when (p /= [])  $ do
-        putStrLn $  "Periods:"
-        mapM_ (printf "    %s\n" . show) p
+-- Create a new component (pair) which forces some value to be constrained within a bound.
+boundCoord :: Coordinate -> Integer -> Component -> [Component]
+boundCoord coord maxVal v@Component{..} = let
 
-    putStrLn ""
+    -- Our vector position values are zero indexed.
+    vecCoord :: Int
+    vecCoord = fromIntegral coord - 1
 
-    return (b,p)
+    a :: Integer
+    a = case Map.lookup coord initialVector of
+        Nothing -> error "??"
+        Just x -> x
+
+    a' :: Integer
+    a' = case Map.lookup coord finalVector of
+        Nothing -> error "??"
+        Just x -> x
+
+    crossStateName :: (Name State) -> Integer -> Name State
+    crossStateName state val = coerce newName
+        where 
+            newName = printf "%s_%s" state' val' :: String
+            state'  = coerce state :: String
+            val'    = show val
+
+    -- The cross product of all states with all values.
+    crossStates :: Vector (Name State)
+    crossStates = Vector.fromList 
+            [ crossStateName state val 
+            | state <- Vector.toList states 
+            , val   <- [0..maxVal] 
+            ]
+
+
+    crossTransitions :: Map (Name State) (Vector Transition)
+    crossTransitions = Map.fromList [
+            ( crossStateName state val
+            , Vector.fromList 
+                [ Transition 
+                    { name = coerce (coerce name ++ "_" ++ show val)
+                    , pre  = pre  Vector.// [(vecCoord, 0)]
+                    , post = post Vector.// [(vecCoord, 0)]
+                    , nextState = crossStateName nextState (val+delta)
+                    }
+                | trans@Transition{..} <- Vector.toList $ transitions Data.GVASS.SCC.!@ state
+                , let delta = flatten trans Vector.! vecCoord
+                -- Only allow when the pre/post does not take us outside the range
+                , pre Vector.! vecCoord <= val
+                , val + delta <= maxVal
+                ]
+            )
+            | state   <- Vector.toList states
+            , val     <- [0..maxVal]
+            ]
+
+    v' = Component
+        { dimension    = dimension
+        , states       = crossStates
+        , transitions  = crossTransitions
+        , initialState = crossStateName initialState a
+        , finalState   = crossStateName finalState   a'
+        , rigidCoords  = rigidCoords <> [coord]
+        , rigidValues  = rigidValues <> [(coord, a)]
+        , initialConstrainedCoords = Set.delete coord initialConstrainedCoords
+        , initialUnconstrainedCoords = initialUnconstrainedCoords
+        , finalConstrainedCoords   = Set.delete coord finalConstrainedCoords
+        , finalUnconstrainedCoords = finalUnconstrainedCoords
+        , initialVector = Map.delete coord initialVector
+        , finalVector   = Map.delete coord finalVector
+        , adjoinment = Just [(coord, a' - a)]
+        }
+
+    v'' = Component
+        { dimension    = dimension
+        , states       = ["μ"]
+        , transitions = []
+        , initialState = "μ"
+        , finalState  = "μ"
+        , rigidCoords = []
+        , rigidValues = []
+        , initialConstrainedCoords = []
+        , initialUnconstrainedCoords = [1..dimension]
+        , finalConstrainedCoords = []
+        , finalUnconstrainedCoords = [1..dimension]
+        , initialVector = []
+        , finalVector = []
+        , adjoinment = adjoinment -- Use the adjoinment from our original component
+    }
+
+    in [v', v'']
+
 
 
 
 data ThetaOneResult = ThetaOneHolds 
-                    | ZeroCoord      { cindex :: Int, coord :: Coordinate     , maxVal :: Integer }
-                    | ZeroTransition { cindex :: Int, trans :: Name Transition, maxVal :: Integer }
+                    | ThetaOneFails ILPVar Integer
+                    | ThetaOneHasNoSolutions
                     deriving (Eq, Show)
-
-data ThetaOneVariable = Coord Int 
-                      | Trans Transition
-                      deriving (Eq, Show)
 
 data ThetaTwoResult = ThetaTwoHolds 
                     | BoundedCoord { cindex :: Int, direction :: Direction, coord :: Coordinate, maxVal :: Integer}
         deriving (Eq, Show)
 
-data KosarajuResult = KosarajuHolds | KosarajuDoesNotHold
-        deriving Eq
+data KosarajuResult = KosarajuHolds GVASS | KosarajuDoesNotHold
+        deriving (Eq, Show)
 
 data Direction = Forward | Backward
         deriving (Eq, Show)
@@ -495,10 +664,26 @@ data Direction = Forward | Backward
 --------------------------------------------------------------------------------
 -- Utility Functions
 
+-- Add in missing values
+makeDense :: Ord a => Map a Integer -> [a] -> [Integer]
+makeDense sparse = fmap (\p -> Map.findWithDefault 0 p sparse)
+
+coordsWhere :: Eq a => (a -> Bool) -> Vector a -> Set Coordinate
+coordsWhere f vec
+        = Set.fromList
+        $ fmap (+1)
+        $ fmap fromIntegral
+        $ fmap fst
+        $ filter (f.snd)
+        $ Vector.toList
+        $ Vector.indexed vec
+
+
+-- Strip out all unused values
 project :: Eq a => Set Coordinate -> Vector a -> Vector a
 project set vec = catMaybes 
-        $ fmap (\(i,s) -> toMaybe ((i+1) `elem` set) s) 
-        $ fmap (first fromIntegral) 
+        $ fmap (\(i,s) -> toMaybe (i `elem` set) s) 
+        $ fmap (first ((+1).fromIntegral))
         $ Vector.indexed vec 
 
 
@@ -515,3 +700,15 @@ catMaybes = mconcat . foldr poss []
             poss (Just x) s = pure x : s
             poss Nothing  s = s
 
+
+unzip2D :: [[(a,b)]] -> ([[a]], [[b]])
+unzip2D = unzip . (unzip <$>)
+
+zip2D :: [[a]] -> [[b]] -> [[(a,b)]]
+zip2D as bs = uncurry zip <$> zip as bs
+
+
+decollate :: (Ord k, Eq a) 
+    => Map k (Vector a) 
+    -> [(k, a)]
+decollate m = [ (a, b) | (a,as) <- Map.toList m, b <- Vector.toList as]
