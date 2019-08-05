@@ -30,12 +30,12 @@ ex1 = GVASS
         , finalState   = "b"
         , rigidCoords  = mempty
         , rigidValues  = mempty
-        , initialConstrainedCoords = [1,2]
+        , initialConstrainedCoords = [0,1]
         , initialUnconstrainedCoords = []
-        , finalConstrainedCoords = [1,2]
+        , finalConstrainedCoords = [0,1]
         , finalUnconstrainedCoords = []
-        , initialVector = [(1,1), (2,0)]
-        , finalVector   = [(1,0), (2,1)]
+        , initialVector = [(0,1), (1,0)]
+        , finalVector   = [(0,0), (1,1)]
         , adjoinment    = Nothing
         }
     ]
@@ -78,12 +78,12 @@ ex2 = GVASS
         , finalState   = "d"
         , rigidCoords  = mempty
         , rigidValues  = mempty
-        , initialConstrainedCoords = [1]
-        , initialUnconstrainedCoords = [2]
-        , finalConstrainedCoords = [2]
-        , finalUnconstrainedCoords = [1]
-        , initialVector = [(1,10)]
-        , finalVector   = [(2,20)]
+        , initialConstrainedCoords = [0]
+        , initialUnconstrainedCoords = [1]
+        , finalConstrainedCoords = [1]
+        , finalUnconstrainedCoords = [0]
+        , initialVector = [(0,10)]
+        , finalVector   = [(1,20)]
         , adjoinment    = Just []
         }
 
@@ -96,9 +96,9 @@ ex2 = GVASS
         , rigidCoords  = mempty
         , rigidValues  = mempty
         , initialConstrainedCoords = []
-        , initialUnconstrainedCoords = [1,2]
+        , initialUnconstrainedCoords = [0,1]
         , finalConstrainedCoords = []
-        , finalUnconstrainedCoords = [1,2]
+        , finalUnconstrainedCoords = [0,1]
         , initialVector = []
         , finalVector   = []
         , adjoinment    = Nothing
@@ -144,12 +144,12 @@ ex3 = GVASS
         , finalState   = "d"
         , rigidCoords  = mempty
         , rigidValues  = mempty
-        , initialConstrainedCoords = [1]
-        , initialUnconstrainedCoords = [2]
-        , finalConstrainedCoords = [2]
-        , finalUnconstrainedCoords = [1]
-        , initialVector = [(1,100)]
-        , finalVector   = [(2,200)]
+        , initialConstrainedCoords = [0]
+        , initialUnconstrainedCoords = [1]
+        , finalConstrainedCoords = [1]
+        , finalUnconstrainedCoords = [0]
+        , initialVector = [(0,100)]
+        , finalVector   = [(1,200)]
         , adjoinment    = Just []
         }
 
@@ -185,12 +185,12 @@ ex3 = GVASS
         , finalState   = "d2"
         , rigidCoords  = mempty
         , rigidValues  = mempty
-        , initialConstrainedCoords = [1]
-        , initialUnconstrainedCoords = [2]
-        , finalConstrainedCoords = [2]
-        , finalUnconstrainedCoords = [1]
-        , initialVector = [(1,100)]
-        , finalVector   = [(2,200)]
+        , initialConstrainedCoords = [0]
+        , initialUnconstrainedCoords = [1]
+        , finalConstrainedCoords = [1]
+        , finalUnconstrainedCoords = [0]
+        , initialVector = [(0,100)]
+        , finalVector   = [(1,200)]
         , adjoinment    = Nothing
         }
     ]
@@ -336,12 +336,12 @@ ex4 = GVASS
     , finalState   = "ω"
     , rigidCoords  = mempty
     , rigidValues  = mempty
-    , initialConstrainedCoords = [1, 2, 3]
+    , initialConstrainedCoords = [0, 1, 2]
     , initialUnconstrainedCoords = mempty
-    , finalConstrainedCoords = [1, 2, 3]
+    , finalConstrainedCoords = [0, 1, 2]
     , finalUnconstrainedCoords = mempty
-    , initialVector = [(1,0), (2,0), (3,0)]
-    , finalVector   = [(1,0), (2,0), (3,0)]
+    , initialVector = [(0,0), (1,0), (2,0)]
+    , finalVector   = [(0,0), (1,0), (2,0)]
     , adjoinment    = Nothing
     }
     ]
@@ -371,12 +371,12 @@ ex5 maxVal = GVASS
         , finalState   = "b"
         , rigidCoords  = mempty
         , rigidValues  = mempty
-        , initialConstrainedCoords = [1, 2]
+        , initialConstrainedCoords = [0, 1]
         , initialUnconstrainedCoords = []
-        , finalConstrainedCoords = [1, 2]
+        , finalConstrainedCoords = [0, 1]
         , finalUnconstrainedCoords = []
-        , initialVector = [(1,0), (2,maxVal)]
-        , finalVector   = [(1,0), (2,0)]
+        , initialVector = [(0,0), (1,maxVal)]
+        , finalVector   = [(0,0), (1,0)]
         , adjoinment    = Just []
         }
     ]

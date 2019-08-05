@@ -50,11 +50,6 @@ import Text.Printf
 
 
 --------------------------------------------------------------------------------
--- * TODO:
-
--- 1. Bug fixing
-
---------------------------------------------------------------------------------
 -- * Kosaraju's Algorithm
 
 kosaraju :: GVASS -> IO KosarajuResult
@@ -131,7 +126,7 @@ makeRigid (GVASS components) = GVASS
             allTrans = flatten <$> (Vector.concat $ Map.elems transitions)
 
             shouldBeRigid :: Coordinate -> Bool
-            shouldBeRigid coord = Vector.all (==0) $ fmap (Vector.! fromIntegral (coord-1)) allTrans
+            shouldBeRigid coord = Vector.all (==0) $ fmap (Vector.! fromIntegral coord) allTrans
 
             rigidsI    = Set.filter shouldBeRigid initialConstrainedCoords
             rigidsF    = Set.filter shouldBeRigid finalConstrainedCoords
@@ -169,11 +164,6 @@ makeRigid (GVASS components) = GVASS
 θ₁ :: GVASS -> IO ThetaOneResult
 θ₁ gvass@(GVASS components) = do
 
-    -- 1. Construct ILP problem.
-    -- Finding unbounded solutions in the non-homo case is the same as 
-    -- finding any solution in the homo (RHS zeroes) case.
-
-    -- We should not expect to see the homo case.
     res <- runILP gvass
     case res of
         Nothing -> return ThetaOneHasNoSolutions
@@ -236,8 +226,8 @@ runILP (GVASS components) = do
 
                 allValues :: [[(ILPVar, Integer)]]
                 allValues = fTrans ++ 
-                    [ [(ILPCoord compIndex Initial i, 1) | i <- [1..dimension]]
-                    , [(ILPCoord compIndex Final   i,-1) | i <- [1..dimension]]
+                    [ [(ILPCoord compIndex Initial i, 1) | i <- range dimension]
+                    , [(ILPCoord compIndex Final   i,-1) | i <- range dimension]
                     ]
                 
                 transposedValues = Data.List.transpose allValues
@@ -301,14 +291,14 @@ runILP (GVASS components) = do
                         , (ILPCoord (compIndex+1) Initial coord,  1)
                         ]
                     , delta)
-                ) <$> zip [1..dimension] (Vector.toList adjoinment)
+                ) <$> zip (range dimension) (Vector.toList adjoinment)
 
                     
         varsList :: [ILPVar]
         varsList = (concat :: [[a]] -> [a])
             [ (concat :: [[a]] -> [a]) 
-                [ ILPCoord i Initial <$> [1..dimension]
-                , ILPCoord i Final   <$> [1..dimension]
+                [ ILPCoord i Initial <$> range dimension
+                , ILPCoord i Final   <$> range dimension
                 , transitions
                     & Map.elems 
                     & map Vector.toList
@@ -451,19 +441,17 @@ refineθ₁ g@(GVASS components) (ThetaOneFails (ILPTrans cindex tname) maxVal) 
 
             isBoring = Vector.length states == 1 && Vector.null (mconcat $ Map.elems transitions)
 
-            forwardPlace  = (i, Forward, forwardTree, ) . minimum
-                    <$> Set.toList
-                    <$> findFullyBounded (fromIntegral $ Set.size initialConstrainedCoords) forwardTree
+            forwardPlace  = (i, Forward, forwardTree, ) . minimum . Set.toList
+                <$> findFullyBounded (fromIntegral $ Set.size initialConstrainedCoords) forwardTree
 
-            backwardPlace = (i, Backward, backwardTree, ) . minimum
-                    <$> Set.toList
-                    <$> findFullyBounded (fromIntegral $ Set.size finalConstrainedCoords) backwardTree
+            backwardPlace = (i, Backward, backwardTree, ) . minimum . Set.toList
+                <$> findFullyBounded (fromIntegral $ Set.size finalConstrainedCoords) backwardTree
 
             in  {-if isBoring then trace("component "++ show i ++" is boring") Nothing else-} (forwardPlace >> backwardPlace)
                 <&> findMaximum
                 <&> \(compIndex, dir, coord, maxVal) -> case dir of
-                    Forward   -> (compIndex, dir, Set.toList initialConstrainedCoords !! (fromIntegral coord - 1), maxVal)
-                    Backward  -> (compIndex, dir, Set.toList   finalConstrainedCoords !! (fromIntegral coord - 1), maxVal)
+                    Forward   -> (compIndex, dir, Set.toList initialConstrainedCoords !! (fromIntegral coord), maxVal)
+                    Backward  -> (compIndex, dir, Set.toList   finalConstrainedCoords !! (fromIntegral coord), maxVal)
 
 
         -- Find the maximum value of the known constrained place
@@ -473,8 +461,7 @@ refineθ₁ g@(GVASS components) (ThetaOneFails (ILPTrans cindex tname) maxVal) 
                     $ maximumBy (comparing (getP coord)) tree
 
         getP :: Coordinate -> ExtConf -> Nat
-        getP coord conf = vec conf Vector.! (fromIntegral coord - 1)
-    -- pPrint firstFailM
+        getP coord conf = vec conf Vector.! (fromIntegral coord)
 
 
     -- If there is no such component, then θ₁ holds.
@@ -544,7 +531,7 @@ buildKarpMillerTree Component{..} = do
 -- (Kosaraju suggests that we can know that at least one coordinate is bounded in all runs.)
 -- This should terminate as soon as all omegas are found.
 findFullyBounded :: Integer -> KarpMillerTree -> Maybe (Set Coordinate)
-findFullyBounded dimension tree = findFullyBounded' dimension tree (Set.fromList [1..dimension])
+findFullyBounded dimension tree = findFullyBounded' dimension tree (allCoords dimension)
     where 
         findFullyBounded' :: Integer -> KarpMillerTree -> (Set Coordinate) -> Maybe (Set Coordinate)
         findFullyBounded' dimension (Node (Configuration q vec) children) boundedCoords = do
@@ -592,7 +579,7 @@ boundCoord coord maxVal v@Component{..} = let
 
     -- Our vector position values are zero indexed.
     vecCoord :: Int
-    vecCoord = fromIntegral coord - 1
+    vecCoord = fromIntegral coord
 
     a :: Integer
     a = case Map.lookup coord initialVector of
@@ -666,9 +653,9 @@ boundCoord coord maxVal v@Component{..} = let
         , rigidCoords = []
         , rigidValues = []
         , initialConstrainedCoords = []
-        , initialUnconstrainedCoords = [1..dimension]
+        , initialUnconstrainedCoords = allCoords dimension
         , finalConstrainedCoords = []
-        , finalUnconstrainedCoords = [1..dimension]
+        , finalUnconstrainedCoords = allCoords dimension
         , initialVector = []
         , finalVector = []
         , adjoinment = adjoinment -- Use the adjoinment from our original component
@@ -706,7 +693,6 @@ makeDense sparse = fmap (\p -> Map.findWithDefault 0 p sparse)
 coordsWhere :: Eq a => (a -> Bool) -> Vector a -> Set Coordinate
 coordsWhere f vec
         = Set.fromList
-        $ fmap (+1)
         $ fmap fromIntegral
         $ fmap fst
         $ filter (f.snd)
@@ -718,7 +704,7 @@ coordsWhere f vec
 project :: Eq a => Set Coordinate -> Vector a -> Vector a
 project set vec = catMaybes 
         $ fmap (\(i,s) -> toMaybe (i `elem` set) s) 
-        $ fmap (first ((+1).fromIntegral))
+        $ fmap (first fromIntegral)
         $ Vector.indexed vec 
 
 
