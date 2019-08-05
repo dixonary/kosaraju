@@ -40,6 +40,7 @@ default-extensions:
 - TupleSections
 - DuplicateRecordFields
 - BangPatterns
+- GADTs
 
 name: kosaraju
 version: 0.1.0.0

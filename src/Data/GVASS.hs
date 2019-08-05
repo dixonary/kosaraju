@@ -20,6 +20,7 @@ import Text.Printf
 import Data.VASS.Coverability
 import Data.VASS
 import Data.VASS.Read
+import GHC.Exts
 
 newtype GVASS = GVASS [Component]
     deriving (Show, Eq)
@@ -61,23 +62,23 @@ generaliseSpec (CovProblem vass initial target) = generalise vass initial target
 generalise :: VASS -> Conf -> Conf -> GVASS
 generalise VASS{..} (Configuration iS iV) (Configuration fS fV) = GVASS
     [ Component
-        { dimension                  = fromIntegral $ length iV
+        { dimension                  = dimension
         , states                     = states
         , transitions                = transitions
         , initialState               = iS
         , finalState                 = fS
         , rigidCoords                = Set.empty
         , rigidValues                = Map.empty
-        , initialConstrainedCoords   = Set.fromList range
+        , initialConstrainedCoords   = allCoords dimension
         , initialUnconstrainedCoords = Set.empty
-        , finalConstrainedCoords     = Set.fromList range
+        , finalConstrainedCoords     = allCoords dimension
         , finalUnconstrainedCoords   = Set.empty
-        , initialVector              = Map.fromList $ zip range $ Vector.toList iV
-        , finalVector                = Map.fromList $ zip range $ Vector.toList fV
+        , initialVector              = Map.fromList $ zip (range dimension) $ Vector.toList iV
+        , finalVector                = Map.fromList $ zip (range dimension) $ Vector.toList fV
         , adjoinment                 = Nothing
         }
     ]
-    where range = [1 .. fromIntegral $ length iV]
+    where dimension = fromIntegral $ length iV
 
 -- | Replace some component in the VASS with a modified version, as specified by @modFunc.
 modifyComponent :: GVASS -> Int -> (Component -> Component) -> GVASS
@@ -136,7 +137,7 @@ unconstrainFinal coord c@Component{..} = c
 setInitial :: SparseVector Integer -> Component -> Component
 setInitial vec c@Component{..} = c
         { initialConstrainedCoords   = coords
-        , initialUnconstrainedCoords = Set.fromList [1..dimension] Set.\\ coords
+        , initialUnconstrainedCoords = allCoords dimension Set.\\ coords
         , initialVector              = vec
         }
         where coords = Set.fromList $ Map.keys vec
@@ -145,7 +146,7 @@ setInitial vec c@Component{..} = c
 setFinal :: SparseVector Integer -> Component -> Component
 setFinal vec c@Component{..} = c
         { finalConstrainedCoords   = coords
-        , finalUnconstrainedCoords = Set.fromList [1..dimension] Set.\\ coords
+        , finalUnconstrainedCoords = allCoords dimension Set.\\ coords
         , finalVector              = vec
         }
         where coords = Set.fromList $ Map.keys vec
@@ -164,9 +165,9 @@ removeTransition trans c@Component{..} = c
 unconstrainAll :: Component -> Component
 unconstrainAll c@Component{..} = c
         { initialConstrainedCoords   = Set.empty
-        , initialUnconstrainedCoords = Set.fromList [1..dimension]
+        , initialUnconstrainedCoords = allCoords dimension
         , finalConstrainedCoords     = Set.empty 
-        , finalUnconstrainedCoords   = Set.fromList [1..dimension]
+        , finalUnconstrainedCoords   = allCoords dimension
         , initialVector              = Map.empty
         , finalVector                = Map.empty
         }
@@ -204,6 +205,11 @@ instance TotalComponents [GVASS]   where
     totalComponents                    = sum . map totalComponents
 
 
+range :: (Integral a, IsList (f a), Item (f a) ~ a) => a -> f a
+range x = [0 .. x-1]
+
+allCoords :: Integer -> Set Coordinate
+allCoords = range
 
 -- Get only the (dense) delta resulting from the application of the transition.
 flatten :: Transition -> Vector Integer
@@ -212,10 +218,10 @@ flatten (Transition name pre post nextState) = Vector.zipWith (-) post pre
 -- Convert a dense vector into a sparse one, where zeroes will be omitted.
 makeSparseCoords :: Vector Integer -> SparseVector Coordinate
 makeSparseCoords vs = Map.fromList 
-        [ (fromIntegral i + 1, j)
+        [ (fromIntegral i, j)
         | (i,j) <- Vector.toList $ Vector.indexed vs
         , j /= 0
         ]
 
 makeDenseCoords :: SparseVector Integer -> Integer -> Vector Integer
-makeDenseCoords sparse dimension = fmap (\p -> Map.findWithDefault 0 p sparse) [1..dimension]
+makeDenseCoords sparse dimension = fmap (\p -> Map.findWithDefault 0 p sparse) (range dimension)

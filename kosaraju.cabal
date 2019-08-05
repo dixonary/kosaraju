@@ -4,7 +4,7 @@ cabal-version: 1.12
 --
 -- see: https://github.com/sol/hpack
 --
--- hash: 6359886fed58c29092c2fca5018d3ae14dfeb73cb3b0115390d3163690aac91f
+-- hash: c38a5682a9a4e6f3dbee864c53b02100bdd4580c072368d02afce6e0f3ed25c1
 
 name:           kosaraju
 version:        0.1.0.0
@@ -32,7 +32,7 @@ library
       Paths_kosaraju
   hs-source-dirs:
       src
-  default-extensions: TypeSynonymInstances FlexibleInstances UnicodeSyntax RecordWildCards OverloadedStrings OverloadedLists QuasiQuotes LambdaCase MultiWayIf TupleSections DuplicateRecordFields BangPatterns
+  default-extensions: TypeSynonymInstances FlexibleInstances UnicodeSyntax RecordWildCards OverloadedStrings OverloadedLists QuasiQuotes LambdaCase MultiWayIf TupleSections DuplicateRecordFields BangPatterns GADTs
   build-depends:
       base >=4.7 && <5
     , containers
@@ -53,7 +53,7 @@ executable kosaraju-exe
       Paths_kosaraju
   hs-source-dirs:
       app
-  default-extensions: TypeSynonymInstances FlexibleInstances UnicodeSyntax RecordWildCards OverloadedStrings OverloadedLists QuasiQuotes LambdaCase MultiWayIf TupleSections DuplicateRecordFields BangPatterns
+  default-extensions: TypeSynonymInstances FlexibleInstances UnicodeSyntax RecordWildCards OverloadedStrings OverloadedLists QuasiQuotes LambdaCase MultiWayIf TupleSections DuplicateRecordFields BangPatterns GADTs
   ghc-options: -threaded -rtsopts -with-rtsopts=-N
   build-depends:
       base >=4.7 && <5
@@ -77,7 +77,7 @@ test-suite kosaraju-test
       Paths_kosaraju
   hs-source-dirs:
       test
-  default-extensions: TypeSynonymInstances FlexibleInstances UnicodeSyntax RecordWildCards OverloadedStrings OverloadedLists QuasiQuotes LambdaCase MultiWayIf TupleSections DuplicateRecordFields BangPatterns
+  default-extensions: TypeSynonymInstances FlexibleInstances UnicodeSyntax RecordWildCards OverloadedStrings OverloadedLists QuasiQuotes LambdaCase MultiWayIf TupleSections DuplicateRecordFields BangPatterns GADTs
   ghc-options: -threaded -rtsopts -with-rtsopts=-N
   build-depends:
       base >=4.7 && <5
