@@ -134,7 +134,7 @@ decompComponent comp@Component{..} =
                     forM_ outgoings $ \(finState, nextSCC, nextInit, adj) -> do
                         let comp' = comp 
                                 { finalState = finState
-                                , adjoinment = Just $ makeSparseCoords adj 
+                                , adjoinment = Just adj 
                                 }
                         generateComponentRoutes nextSCC nextInit (comp' : ancestorComponents)
         

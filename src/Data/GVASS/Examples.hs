@@ -12,6 +12,9 @@ import Data.VASS
     SCC decomposition should give us one GVASS comprising two components,
     each with one state.
 -}
+
+-- Can you get from [1,0] to [0,1] via a single transition with delta [-1,1]?
+-- Hint: Yes
 ex1 :: GVASS
 ex1 = GVASS
     [ Component
@@ -287,8 +290,8 @@ ex4 = GVASS
         ("d", 
         [ Transition 
             { name      = "t_d_rep"
-            , pre       = [2,0,0]
-            , post      = [0,0,3]
+            , pre       = [3,0,0]
+            , post      = [0,0,4]
             , nextState = "d"
             }
           , Transition 
@@ -344,93 +347,38 @@ ex4 = GVASS
     ]
 
 
-ex4_small :: GVASS
-ex4_small = GVASS
+ex5 :: Integer -> GVASS
+ex5 maxVal = GVASS
     [ Component
-    { dimension   = 3
-    , states      = ["α", "a", "b", "b'", "ω"]
-    , transitions =
-        [ ("α", 
-            [ Transition 
-            { name      = "t_incr"
-            , pre       = [0,0,0]
-            , post      = [1,1,0]
-            , nextState = "a"
-            }
-            ]
-        )
-        ,  ("a", 
-            [ Transition 
-            { name      = "t_incr_2"
-            , pre       = [0,0,0]
-            , post      = [1,1,0]
-            , nextState = "a"
-            }
-            , Transition 
-            { name      = "t_ab"
-            , pre       = [0,0,0]
-            , post      = [0,0,0]
-            , nextState = "b"
-            }
-            ]
-        )
-        ,  ("b", 
-            [ Transition 
-                { name      = "t_b_rep"
-                , pre       = [1,0,0]
-                , post      = [0,0,2]
+        { dimension   = 2
+        , states      = ["a", "b"]
+        , transitions =
+            [ ("a", 
+                [ Transition 
+                { name      = "t0"
+                , pre       = [0,1]
+                , post      = [1,0]
+                , nextState = "a"
+                }, Transition 
+                { name      = "t1"
+                , pre       = [maxVal,0]
+                , post      = [0, 0]
                 , nextState = "b"
                 }
-            , Transition 
-                { name      = "t_bb'"
-                , pre       = [0,0,0]
-                , post      = [0,0,0]
-                , nextState = "b'"
-                }
+                ])
             ]
-        )
-        ,  ("b'", 
-            [ Transition 
-                { name      = "t_b'_rep"
-                , pre       = [0,0,1]
-                , post      = [1,0,0]
-                , nextState = "b'"
-                }
-            , Transition 
-                { name      = "t_b'ω"
-                , pre       = [0,0,0]
-                , post      = [0,0,0]
-                , nextState = "ω"
-                }
-            ]
-        ),  ("ω", 
-        [ Transition 
-          { name      = "t_w_mul_sub"
-          , pre       = [2,1,0]
-          , post      = [0,0,0]
-          , nextState = "ω"
-          }
-        , Transition 
-          { name      = "t_w_extra_sub"
-          , pre       = [1,0,0]
-          , post      = [0,0,0]
-          , nextState = "ω"
-          }
-        ]
-      )
-        ]
-    , initialState = "α"
-    , finalState   = "ω"
-    , rigidCoords  = mempty
-    , rigidValues  = mempty
-    , initialConstrainedCoords = [1, 2, 3]
-    , initialUnconstrainedCoords = mempty
-    , finalConstrainedCoords = [1, 2, 3]
-    , finalUnconstrainedCoords = mempty
-    , initialVector = [(1,0), (2,0), (3,0)]
-    , finalVector   = [(1,0), (2,0), (3,0)]
-    , adjoinment    = Nothing
-    }
+        , initialState = "a"
+        , finalState   = "b"
+        , rigidCoords  = mempty
+        , rigidValues  = mempty
+        , initialConstrainedCoords = [1, 2]
+        , initialUnconstrainedCoords = []
+        , finalConstrainedCoords = [1, 2]
+        , finalUnconstrainedCoords = []
+        , initialVector = [(1,0), (2,maxVal)]
+        , finalVector   = [(1,0), (2,0)]
+        , adjoinment    = Just []
+        }
     ]
 
 -- Expected answer: no solutions

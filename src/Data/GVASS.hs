@@ -47,7 +47,7 @@ data Component = Component
     , finalUnconstrainedCoords   :: Set Coordinate
     , initialVector              :: SparseVector Integer
     , finalVector                :: SparseVector Integer
-    , adjoinment                 :: Maybe (SparseVector Integer)
+    , adjoinment                 :: Maybe (Vector Integer)
     }
     deriving (Show, Eq)
 
@@ -150,7 +150,7 @@ setFinal vec c@Component{..} = c
         }
         where coords = Set.fromList $ Map.keys vec
 
-setAdjoinment :: Maybe (SparseVector Integer) -> Component -> Component
+setAdjoinment :: Maybe (Vector Integer) -> Component -> Component
 setAdjoinment vec c@Component{..} = c { adjoinment = vec }
 
 
@@ -216,3 +216,6 @@ makeSparseCoords vs = Map.fromList
         | (i,j) <- Vector.toList $ Vector.indexed vs
         , j /= 0
         ]
+
+makeDenseCoords :: SparseVector Integer -> Integer -> Vector Integer
+makeDenseCoords sparse dimension = fmap (\p -> Map.findWithDefault 0 p sparse) [1..dimension]

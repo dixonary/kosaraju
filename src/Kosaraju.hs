@@ -72,7 +72,7 @@ kosaraju g = kosaraju' [g]
 kosaraju' :: [GVASS] -> IO KosarajuResult
 kosaraju' vs' = do
     -- Ensure that the GVASSs are all fully decomposed by the SCC decomposition.
-    let vs = concatMap decompGVASS vs'
+    let vs = map makeRigid $ concatMap decompGVASS vs'
 
     -- Check θ₁,θ₂  for ALL vasses
     -- If it fails, then refine or give up if it cannot be refined
@@ -121,6 +121,40 @@ kosaraju' vs' = do
 
 
 --------------------------------------------------------------------------------
+-- * Make Rigid Coordinates
+
+makeRigid :: GVASS -> GVASS
+makeRigid (GVASS components) = GVASS 
+    $ flip fmap components 
+    $ \c@Component{..} -> 
+        let
+            allTrans = flatten <$> (Vector.concat $ Map.elems transitions)
+
+            shouldBeRigid :: Coordinate -> Bool
+            shouldBeRigid coord = Vector.all (==0) $ fmap (Vector.! fromIntegral (coord-1)) allTrans
+
+            rigidsI    = Set.filter shouldBeRigid initialConstrainedCoords
+            rigidsF    = Set.filter shouldBeRigid finalConstrainedCoords
+            newValuesI = Map.restrictKeys initialVector rigidsI
+            newValuesF = Map.restrictKeys finalVector   rigidsF
+            rigids     = rigidsI <> rigidsF
+            newValues  = newValuesI <> newValuesF
+
+            in c{  rigidCoords = rigidCoords <> rigids
+                ,  rigidValues = rigidValues <> newValues
+                , initialConstrainedCoords   = initialConstrainedCoords   Set.\\ rigids
+                , finalConstrainedCoords     = finalConstrainedCoords     Set.\\ rigids
+                , initialUnconstrainedCoords = initialUnconstrainedCoords Set.\\ rigids
+                , finalUnconstrainedCoords   = finalUnconstrainedCoords   Set.\\ rigids
+                , initialVector = Map.withoutKeys initialVector rigidsI
+                , finalVector   = Map.withoutKeys finalVector   rigidsF
+                }
+
+    
+
+
+
+--------------------------------------------------------------------------------
 -- * θ₁
 
 {- | θ₁ is expressed as follows:
@@ -145,15 +179,15 @@ kosaraju' vs' = do
         Nothing -> return ThetaOneHasNoSolutions
         Just (vars, bpByVar) -> do
 
-        -- 2. Find the first thing which violates the theta-one condition.
-        let firstFailM = listToMaybe $ filter isFail vars
-                where isFail var = all (== 0) $ snd $ bpByVar Map.! var
+            -- 2. Find the first thing which violates the theta-one condition.
+            let firstFailM = listToMaybe $ filter isFail vars
+                    where isFail var = all (== 0) $ snd $ bpByVar Map.! var
 
-        let maxVal var   = maximum $ fst $ bpByVar Map.! var
+                maxVal var   = maximum $ fst $ bpByVar Map.! var
 
-        return $ case firstFailM of
-            Nothing  -> ThetaOneHolds
-            Just var -> ThetaOneFails var (maxVal var)
+            return $ case firstFailM of
+                Nothing  -> ThetaOneHolds
+                Just var -> ThetaOneFails var (maxVal var)
 
 
 
@@ -172,13 +206,15 @@ runILP :: GVASS -> IO ( Maybe ( [ILPVar], Map ILPVar ([Integer], [Integer]) ) )
 runILP (GVASS components) = do
 
     let 
+        indexedComponents = zip [0..] components 
+
         allVars :: [(Map ILPVar Integer, Integer)]
         allVars = (concat :: [[a]] -> [a])
-            [ concat $ parikhImageConstraints      <$> zip [0..] components
-            , concat $ kirchoffConstraints         <$> zip [0..] components
-            , concat $ constrainedValueConstraints <$> zip [0..] components
-            , concat $ rigidValueConstraints       <$> zip [0..] components
-            , concat $ adjoinmentConstraints       <$> zip [0..] components
+            [ concat $ parikhImageConstraints      <$> indexedComponents
+            , concat $ kirchoffConstraints         <$> indexedComponents
+            , concat $ constrainedValueConstraints <$> indexedComponents
+            , concat $ rigidValueConstraints       <$> indexedComponents
+            , concat $ adjoinmentConstraints       <$> indexedComponents
             ]
 
         -- The initial value of each place, plus the delta of each transition
@@ -265,7 +301,7 @@ runILP (GVASS components) = do
                         , (ILPCoord (compIndex+1) Initial coord,  1)
                         ]
                     , delta)
-                ) <$> zip [1..dimension] (makeDense adjoinment [1..dimension])
+                ) <$> zip [1..dimension] (Vector.toList adjoinment)
 
                     
         varsList :: [ILPVar]
@@ -365,14 +401,14 @@ refineθ₁ g@(GVASS components) (ThetaOneFails (ILPTrans cindex tname) maxVal) 
                         $ Data.List.concatMap Vector.toList
                         $ Map.elems transitions
 
-        tSparse = makeSparseCoords $ flatten transition
+        --tSparse = makeSparseCoords $ flatten transition
 
         applyToAllButLast f (x:y:xs) = f x : applyToAllButLast f (y:xs)
         applyToAllButLast f ls       = ls
 
         makeChain i component = case i of
             0 -> [component']
-            n -> applyToAllButLast (setAdjoinment (Just tSparse))
+            n -> applyToAllButLast (setAdjoinment (Just $ flatten transition))
                 $  [setInitial initialVector freeComponent]
                 ++ replicate (fromIntegral n - 1) freeComponent
                 ++ [setFinal finalVector freeComponent]
@@ -423,7 +459,7 @@ refineθ₁ g@(GVASS components) (ThetaOneFails (ILPTrans cindex tname) maxVal) 
                     <$> Set.toList
                     <$> findFullyBounded (fromIntegral $ Set.size finalConstrainedCoords) backwardTree
 
-            in  if isBoring then trace("component "++ show i ++" is boring") Nothing else (forwardPlace >> backwardPlace)
+            in  {-if isBoring then trace("component "++ show i ++" is boring") Nothing else-} (forwardPlace >> backwardPlace)
                 <&> findMaximum
                 <&> \(compIndex, dir, coord, maxVal) -> case dir of
                     Forward   -> (compIndex, dir, Set.toList initialConstrainedCoords !! (fromIntegral coord - 1), maxVal)
@@ -571,9 +607,8 @@ boundCoord coord maxVal v@Component{..} = let
     crossStateName :: (Name State) -> Integer -> Name State
     crossStateName state val = coerce newName
         where 
-            newName = printf "%s_%s" state' val' :: String
+            newName = printf "%s_%i:%i" state' coord val :: String
             state'  = coerce state :: String
-            val'    = show val
 
     -- The cross product of all states with all values.
     crossStates :: Vector (Name State)
@@ -589,7 +624,7 @@ boundCoord coord maxVal v@Component{..} = let
             ( crossStateName state val
             , Vector.fromList 
                 [ Transition 
-                    { name = coerce (coerce name ++ "_" ++ show val)
+                    { name = coerce (printf "%s_%i:%i" (coerce name::String) coord val :: String)
                     , pre  = pre  Vector.// [(vecCoord, 0)]
                     , post = post Vector.// [(vecCoord, 0)]
                     , nextState = crossStateName nextState (val+delta)
@@ -619,7 +654,7 @@ boundCoord coord maxVal v@Component{..} = let
         , finalUnconstrainedCoords = finalUnconstrainedCoords
         , initialVector = Map.delete coord initialVector
         , finalVector   = Map.delete coord finalVector
-        , adjoinment = Just [(coord, a' - a)]
+        , adjoinment = Just $ makeDenseCoords [(coord, a' - a)] dimension
         }
 
     v'' = Component
