@@ -22,13 +22,15 @@ import Data.GVASS.SCC
 import Data.VASS.Coverability.KarpMiller.ExtendedNaturals
 import Data.VASS.Coverability.KarpMiller.Shared
 import Data.VASS.Coverability.KarpMiller
+import Data.VASS.Utils
 import Data.VASS
+
 
 import Data.Functor ((<&>))
 import Data.Bifunctor (first, second)
 import Data.Function ((&), on)
 import Control.Monad (when, forM)
-import Data.Foldable (foldrM, maximumBy)
+import Data.Foldable (foldrM, maximumBy, toList)
 import Data.Ord (comparing)
 import Data.Maybe hiding (catMaybes)
 
@@ -257,7 +259,7 @@ runILP (GVASS components) = do
                     + (if state == finalState   then (-1) else 0)
 
 
-            in (\state -> (Map.fromList $ transVarsWithAdjacency state, stateVal state)) <$> Vector.toList states
+            in (\state -> (Map.fromList $ transVarsWithAdjacency state, stateVal state)) <$> toList states
 
         constrainedValueConstraints :: (Int, Component) -> [(Map ILPVar Integer, Integer)]
         constrainedValueConstraints (compIndex, comp@Component{..}) =
@@ -439,7 +441,7 @@ refineθ₁ g@(GVASS components) (ThetaOneFails (ILPTrans cindex tname) maxVal) 
         isFail :: (Int, Component, (KarpMillerTree, KarpMillerTree)) -> Maybe (Int, Direction, Coordinate, Integer)
         isFail (i, comp@Component{..}, (forwardTree, backwardTree)) = let
 
-            isBoring = Vector.length states == 1 && Vector.null (mconcat $ Map.elems transitions)
+            isBoring = Set.size states == 1 && Vector.null (mconcat $ Map.elems transitions)
 
             forwardPlace  = (i, Forward, forwardTree, ) . minimum . Set.toList
                 <$> findFullyBounded (fromIntegral $ Set.size initialConstrainedCoords) forwardTree
@@ -598,10 +600,10 @@ boundCoord coord maxVal v@Component{..} = let
             state'  = coerce state :: String
 
     -- The cross product of all states with all values.
-    crossStates :: Vector (Name State)
-    crossStates = Vector.fromList 
+    crossStates :: Set (Name State)
+    crossStates = Set.fromList 
             [ crossStateName state val 
-            | state <- Vector.toList states 
+            | state <- toList states 
             , val   <- [0..maxVal] 
             ]
 
@@ -616,14 +618,14 @@ boundCoord coord maxVal v@Component{..} = let
                     , post = post Vector.// [(vecCoord, 0)]
                     , nextState = crossStateName nextState (val+delta)
                     }
-                | trans@Transition{..} <- Vector.toList $ transitions Data.GVASS.SCC.!@ state
+                | trans@Transition{..} <- toList $ transitions Data.GVASS.SCC.!@ state
                 , let delta = flatten trans Vector.! vecCoord
                 -- Only allow when the pre/post does not take us outside the range
                 , pre Vector.! vecCoord <= val
                 , val + delta <= maxVal
                 ]
             )
-            | state   <- Vector.toList states
+            | state   <- toList states
             , val     <- [0..maxVal]
             ]
 

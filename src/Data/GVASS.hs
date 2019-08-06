@@ -36,7 +36,7 @@ type SparseVector a = Map Integer a
 -- | A Component is a single element of our GVASS. 
 data Component = Component
     { dimension                  :: Integer
-    , states                     :: Vector (Name State)
+    , states                     :: Set (Name State)
     , transitions                :: Map (Name State) (Vector Transition)
     , initialState               :: Name State
     , finalState                 :: Name State
