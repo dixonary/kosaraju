@@ -10,10 +10,12 @@ import qualified Data.List       as List
 import qualified Data.Map.Strict as Map
 import qualified Data.Vector     as Vector
 import qualified Data.Set        as Set
+import Data.Set(Set)
 
 import Data.Graph
 import qualified Data.Text.Lazy as Text
 
+import Data.Foldable(toList)
 
 import qualified Control.Monad.State as MTL
 import Control.Monad (foldM, forM_, void)
@@ -55,8 +57,8 @@ decompComponent :: Component -> [[Component]]
 decompComponent comp@Component{..} =  
 
     -- Construct a Graph representation of the transition system.
-    let adjacencies = [ (q, q, Vector.toList $ nextState <$> ts) 
-                      | q  <- Vector.toList states
+    let adjacencies = [ (q, q, toList $ nextState <$> ts) 
+                      | q  <- toList states
                       , let ts = transitions !@ q
                       ]
 
@@ -65,8 +67,8 @@ decompComponent comp@Component{..} =
         sccs = zip [0..] $ stronglyConnComp adjacencies
 
     -- Map sccs to a list of states.
-        sccMap :: Map Integer [Name State]
-        sccMap = Map.fromList $ second flattenSCC <$> sccs
+        sccMap :: Map Integer (Set (Name State))
+        sccMap = Map.fromList $ second (Set.fromList . flattenSCC) <$> sccs
 
     -- Map states to some SCC.
         stateMap :: Map (Name State) Integer
@@ -90,9 +92,9 @@ decompComponent comp@Component{..} =
     -- component. The bridges between SCCS will be represented as
     -- adjoinments between components.
     -- Each route from start to end is written a sequence of components.
-        makeBaseComponent :: [Name State] -> Component
+        makeBaseComponent :: Set (Name State) -> Component
         makeBaseComponent states = comp 
-                { states                     = Vector.fromList states
+                { states                     = states
                 , transitions                = limitTransitions transitions
                 , rigidCoords                = rigidCoords
                 , rigidValues                = rigidValues
@@ -106,7 +108,7 @@ decompComponent comp@Component{..} =
                 }
                 where limitTransitions ts 
                         =   Vector.filter ((`elem` states) . nextState)
-                        <$> Map.fromList [(s, ts !@ s) | s <- states]
+                        <$> Map.fromList [(s, ts !@ s) | s <- toList states]
 
     -- The components before anything has been modified about them.
         sccBaseComponents :: Map Integer Component

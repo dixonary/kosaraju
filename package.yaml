@@ -1,3 +1,23 @@
+name: kosaraju
+version: 0.1.0.0
+extra-source-files: []
+author: Alex Dixon
+github: dixonary/kosaraju
+license: BSD3
+
+description: Please see the README on GitHub at <https://github.com/dixonary/kosaraju#readme>
+
+executables:
+  duvet:
+    source-dirs: app
+    main: Main.hs
+    ghc-options:
+    - -threaded
+    - -rtsopts
+    - -with-rtsopts=-N
+    dependencies:
+    - kosaraju
+
 library:
   source-dirs: src
 tests:
@@ -25,6 +45,7 @@ dependencies:
 - vass
 - karp-miller
 - text
+- duvet
 
 
 default-extensions:
@@ -41,22 +62,3 @@ default-extensions:
 - DuplicateRecordFields
 - BangPatterns
 - GADTs
-
-name: kosaraju
-version: 0.1.0.0
-extra-source-files: []
-author: Alex Dixon
-github: dixonary/kosaraju
-license: BSD3
-executables:
-  kosaraju-exe:
-    source-dirs: app
-    main: Main.hs
-    ghc-options:
-    - -threaded
-    - -rtsopts
-    - -with-rtsopts=-N
-    dependencies:
-    - kosaraju
-
-description: Please see the README on GitHub at <https://github.com/dixonary/kosaraju#readme>
