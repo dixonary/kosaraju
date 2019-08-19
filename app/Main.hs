@@ -1,8 +1,9 @@
 module Main where
+    
+import qualified Duvet
 
-import Kosaraju
-import Data.GVASS.Examples
-import Text.Pretty.Simple
+import Kosaraju.Cov
+import Data.VASS.Coverability.KarpMiller.Duvet
 
 main :: IO ()
-main = kosaraju ex4 >>= pPrint
+main = Duvet.runDuvet [kosChecker, karpMillerChecker]
