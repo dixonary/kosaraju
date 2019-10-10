@@ -4,7 +4,7 @@ cabal-version: 1.12
 --
 -- see: https://github.com/sol/hpack
 --
--- hash: 78422b14e9b386dc07d96accb1e87a3e6d7e181133f14b0e5930b5902d095624
+-- hash: 4959c58a6e468e95b157986d05a842e369e53102c11db072a914b52ee54e03a8
 
 name:           kosaraju
 version:        0.1.0.0
@@ -87,6 +87,7 @@ test-suite kosaraju-test
     , containers
     , duvet
     , filepath
+    , hspec
     , karp-miller
     , kosaraju
     , megaparsec

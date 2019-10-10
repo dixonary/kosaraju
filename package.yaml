@@ -30,6 +30,7 @@ tests:
     - -with-rtsopts=-N
     dependencies:
     - kosaraju
+    - hspec
 
 copyright: 2019 Alex Dixon
 maintainer: alexander.dixon@warwick.ac.uk

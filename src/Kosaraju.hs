@@ -382,8 +382,7 @@ refineθ₁ g@(GVASS components) (ThetaOneFails (ILPCoord cindex pos coord) maxV
             putStrLn "Refining by constraining on all possible final values..."
         -- Refine by all possible constraints on final coordinate
             return [ modifyComponent g cindex (constrainFinal coord val) | val <- [0..maxVal] ]
-
-    
+  
 refineθ₁ g@(GVASS components) (ThetaOneFails (ILPTrans cindex tname) maxVal) = do
     putStrLn "Refining by exploding a bounded transition..."
 
@@ -571,8 +570,6 @@ refineθ₂ g@(GVASS components) BoundedCoord{..} = let
                     return [ expandComponent g cindex $ boundCoord coord maxVal ]
                 | otherwise -> 
                     error $ "Place " ++ show cindex ++ " was neither initial constrained nor unconstrained"
-
-
 
 
 -- Create a new component (pair) which forces some value to be constrained within a bound.
