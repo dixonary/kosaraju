@@ -54,6 +54,9 @@ import Text.Printf
 --------------------------------------------------------------------------------
 -- * Kosaraju's Algorithm
 
+{-| 
+    Call Kosaraju's algorithm with a singular GVASS.
+-}
 kosaraju :: GVASS -> IO KosarajuResult
 kosaraju g = kosaraju' [g]
 
@@ -120,6 +123,13 @@ kosaraju' vs' = do
 --------------------------------------------------------------------------------
 -- * Make Rigid Coordinates
 
+{-| Coordinates which become rigid are no longer considered part of a component - 
+    the values cannot be manipulated by any operations inside of the component.
+
+    Marking a component as rigid means fewer computations have to be done
+    at later stages. Kosaraju tries to mark the maximal number of coordinates as 
+    rigid wherever possible.
+-}
 makeRigid :: GVASS -> GVASS
 makeRigid (GVASS components) = GVASS 
     $ flip fmap components 
@@ -183,9 +193,15 @@ makeRigid (GVASS components) = GVASS
 
 
 
-
+{-| Simply tells us whether the ILP coordinate was constrained at the start
+    or end of a component.
+-}
 data VarPosition = Initial | Final
     deriving (Eq, Ord, Show)
+
+{-| The specific coordinates which were bounded in the output of theta-one.
+    We use this information to determine which refinement to perform.
+-}
 data ILPVar = ILPCoord Int VarPosition Coordinate | ILPTrans Int (Name Transition)
     deriving (Eq, Ord, Show)
 
@@ -528,9 +544,10 @@ buildKarpMillerTree Component{..} = do
         (karpMillerTree final   vassFinal)
 
 
--- | Identify those coordinates which are bounded EVERYWHERE.
--- (Kosaraju suggests that we can know that at least one coordinate is bounded in all runs.)
--- This should terminate as soon as all omegas are found.
+{-| Identify those coordinates which are bounded EVERYWHERE.
+    (Kosaraju suggests that we can know that at least one coordinate is bounded in all runs.)
+    This should terminate as soon as all omegas are found.
+-}
 findFullyBounded :: Integer -> KarpMillerTree -> Maybe (Set Coordinate)
 findFullyBounded dimension tree = findFullyBounded' dimension tree (allCoords dimension)
     where 
@@ -544,7 +561,9 @@ findFullyBounded dimension tree = findFullyBounded' dimension tree (allCoords di
             then Nothing
             else foldM (flip (findFullyBounded' dimension)) remainingCoords children
 
-
+{-| Use the information determined by θ₂ to refine the VASS into a larger set of 
+    semantically "smaller" VASSs. 
+-}
 refineθ₂ :: GVASS -> ThetaTwoResult -> IO [GVASS]
 refineθ₂ g@(GVASS components) BoundedCoord{..} = let
     comp@Component{..} = components !! cindex
@@ -572,7 +591,9 @@ refineθ₂ g@(GVASS components) BoundedCoord{..} = let
                     error $ "Place " ++ show cindex ++ " was neither initial constrained nor unconstrained"
 
 
--- Create a new component (pair) which forces some value to be constrained within a bound.
+{-| Create a new component which forces some value to be constrained within a 
+    bound. This produces every possible variant of the bound.
+-}
 boundCoord :: Coordinate -> Integer -> Component -> [Component]
 boundCoord coord maxVal v@Component{..} = let
 
@@ -664,19 +685,25 @@ boundCoord coord maxVal v@Component{..} = let
 
 
 
-
+-- | What is the outcome of evaluating θ₁?
 data ThetaOneResult = ThetaOneHolds 
                     | ThetaOneFails ILPVar Integer
                     | ThetaOneHasNoSolutions
                     deriving (Eq, Show)
 
+-- | What is the outcome of evaluating θ₂?
 data ThetaTwoResult = ThetaTwoHolds 
                     | BoundedCoord { cindex :: Int, direction :: Direction, coord :: Coordinate, maxVal :: Integer}
         deriving (Eq, Show)
 
+-- | What is the outcome of evaluating kosaraju as a whole?
 data KosarajuResult = KosarajuHolds GVASS | KosarajuDoesNotHold
         deriving (Eq, Show)
 
+{-| θ₂ is performed both forward and backward. We use this to track which
+    direction the violation was found in, so that we can constrain the initial
+    or final values as appropriate.
+-}
 data Direction = Forward | Backward
         deriving (Eq, Show)
 
@@ -685,34 +712,41 @@ data Direction = Forward | Backward
 --------------------------------------------------------------------------------
 -- Utility Functions
 
--- Add in missing values
-makeDense :: Ord a => Map a Integer -> [a] -> [Integer]
+{-| Convert a key-value representation into some direct list form.
+    We specifically insert zeroes into places whose values we do not have.
+-}
+makeDense :: (Ord a, Functor f, Integral n) => Map a n -> f a -> f n
 makeDense sparse = fmap (\p -> Map.findWithDefault 0 p sparse)
 
+{-| Return the indices of vector @vec@ which fulfil predicate @p@. -}
 coordsWhere :: Eq a => (a -> Bool) -> Vector a -> Set Coordinate
-coordsWhere f vec
+coordsWhere p vec
         = Set.fromList
         $ fmap fromIntegral
         $ fmap fst
-        $ filter (f.snd)
+        $ filter (p.snd)
         $ Vector.toList
         $ Vector.indexed vec
 
 
--- Strip out all unused values
+{-| Keep only the values from a vector which appear in the set @set@. -}
 project :: Eq a => Set Coordinate -> Vector a -> Vector a
 project set vec = catMaybes 
         $ fmap (\(i,s) -> toMaybe (i `elem` set) s) 
         $ fmap (first fromIntegral)
         $ Vector.indexed vec 
 
-
+{-| Sometimes we need to switch from a boolean to a particular value. 
+    Kind of the opposite of `isJust`. 
+-}
 {-# INLINE toMaybe #-}
 toMaybe :: Bool -> a -> Maybe a
 toMaybe False _ = Nothing
 toMaybe True  x = Just x
 
-
+{-| A generic form of catMaybes with the weakest possible precondition.
+    This means we can use it not only on lists, but also vectors etc.
+-}
 catMaybes :: (Applicative f, Foldable f, Monoid (f a)) => f (Maybe a) -> f a
 catMaybes = mconcat . foldr poss []
         where 
@@ -720,14 +754,15 @@ catMaybes = mconcat . foldr poss []
             poss (Just x) s = pure x : s
             poss Nothing  s = s
 
+{-| Go from something of the form
 
-unzip2D :: [[(a,b)]] -> ([[a]], [[b]])
-unzip2D = unzip . (unzip <$>)
+> { x -> [1,2], y -> [3] }
 
-zip2D :: [[a]] -> [[b]] -> [[(a,b)]]
-zip2D as bs = uncurry zip <$> zip as bs
+to
 
+> [ (x, 1), (x, 2), (y, 3) ]
 
+-}
 decollate :: (Ord k, Eq a) 
     => Map k (Vector a) 
     -> [(k, a)]

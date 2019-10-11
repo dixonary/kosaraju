@@ -1,4 +1,6 @@
-{- Use the standard COV->REACH reduction to determine whether some state is coverable.
+{- | Use the standard COV->REACH reduction to determine whether some 
+    state is coverable. In this way, we can use this program as an 
+    implementation of a coverability checker.
 -}
 module Kosaraju.Cov where
 
@@ -17,7 +19,8 @@ import Data.Functor (($>))
 
 import Duvet
 
-
+{-| The description of Kosaraju's algorithm for integration with the duvet tool.
+-}
 kosChecker :: CheckerInfo
 kosChecker = CheckerInfo
     { checker = kosarajuCover
@@ -26,6 +29,9 @@ kosChecker = CheckerInfo
     , description = "Solve coverability by reduction to reachability."
     }
 
+{-| The main entrypoint to using the Kosaraju algorithm as a coverability 
+    checker. 
+-}
 kosarajuCover :: CovChecker
 kosarajuCover problem = do
     let g = buildCovProblem problem
@@ -35,6 +41,10 @@ kosarajuCover problem = do
         KosarajuHolds r -> Unsafe
         KosarajuDoesNotHold -> Safe
 
+{-| In order to use our "converted" coverability specification as a proper
+    coverability implementation, we introduce a wind-down state which allows
+    us to discard any "surplus" tokens.
+-}
 buildCovProblem :: CovProblem -> GVASS
 buildCovProblem problem = 
     -- generaliseSpec gives us a single-component system.
