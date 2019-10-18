@@ -1,3 +1,13 @@
+{-| An implementation of the strongly connected component decomposition.
+
+    This implementation makes heavy use of the @Data.Graph@ library. This means
+    a reduction in the amount of boilerplate code, but some data marshalling is
+    necessary. 
+    
+    It may be more efficient to reimplement SCC directly so that we can avoid 
+    that data marshalling step. As this implementation works correctly it will
+    stay as-is for now.
+-}
 module Data.GVASS.SCC where
 
 import Data.VASS
@@ -24,7 +34,6 @@ import Data.Bifunctor (second)
 import Data.Tuple (swap)
 
 import Debug.Trace
-import System.IO.Unsafe
 import Text.Pretty.Simple
 
 {- | Perform the Strongly Connected Component Decomposition.
@@ -34,9 +43,9 @@ import Text.Pretty.Simple
     it.
 
     This must be performed for every non-SC component in the GVASS, and so
-    there is a good chance of exponential blowup.
+    there is a good chance of exponential blowup. This is an unfortunate feature
+    of the original algorithm, and may be an opportunity for modern shortcuts.
 -}
-
 decompGVASS :: GVASS -> [GVASS]
 decompGVASS gvass@(GVASS components) = do
 
@@ -51,8 +60,9 @@ decompGVASS gvass@(GVASS components) = do
                      ]
 
 
--- | Go from one component to a series of components
--- representing the SCC decomposition of that component.
+{-| Go from one component to a series of components
+    representing the SCC decomposition of that component.
+-}
 decompComponent :: Component -> [[Component]]
 decompComponent comp@Component{..} =  
 
@@ -172,16 +182,17 @@ decompComponent comp@Component{..} =
 
 
 --------------------------------------------------------------------------------
--- Helper functions
+-- * Helper functions
 
--- Make association lists into lists of pairs.
+-- | Make association lists into lists of pairs.
 ungroup :: (Show a, Show b) => [(a,[b])] -> [(a,b)]
 ungroup xs = [ (a,b) | (a,bs) <- xs, b <- bs ]
 
--- Collect such pairs into a map (kinda the opposite)
+-- | Collect such pairs into a map (kinda the opposite)
 collate :: (Ord a, Applicative f, Semigroup (f b)) => [(a,b)] -> Map a (f b)
 collate xs = Map.fromListWith (<>) $ second pure <$> xs
 
+-- | Lookup in a map, with a sensible default (empty) where possible.
 (!@) :: (Ord k, Monoid (m a)) => Map k (m a) -> k -> (m a)
 map !@ elem = Map.findWithDefault mempty elem map
 

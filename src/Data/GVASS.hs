@@ -1,3 +1,14 @@
+{-| A GVASS (Generalised Vector Addition with States) is an extension of the
+    standard VASS. In particuler, it embeds an arbitrary number of VASS inside
+    of a framework which can provide additional invariants of the system.
+
+    A GVASS comprises a chain of VASSs. The VASSs are annotated with additional
+    restrictions, such as the precise values of some coordinates at the entry
+    or exit points of the indiviual VASSs (called "components"). Vectors are
+    joined together by "adjoinments": singular, known vectors which can modify
+    arbitrary vector coordinates.
+
+-}
 module Data.GVASS where
 
 import Data.List ((\\), uncons, intersperse)
@@ -22,15 +33,24 @@ import Data.VASS
 import Data.VASS.Read
 import GHC.Exts
 
+
+{-| A GVASS is a list of components.
+    Data.Seq would be a more efficient implementation, but lists do not seem
+    to have too negative of an impact (the number of components rarely hits
+    double figures).
+-}
 newtype GVASS = GVASS [Component]
     deriving (Show, Eq)
 
+-- | Extract the linked list of components from the GVASS.
 unGVASS :: GVASS -> [Component]
 unGVASS (GVASS cs) = cs
 
-
+-- | We define a coordinate simply as an integer.
 type Coordinate     = Integer
-type SparseVector a = Map Integer a
+
+-- | A sparse vector is a mapping from coordinate to value.
+type SparseVector a = Map Coordinate a
 
 
 -- | A Component is a single element of our GVASS. 
@@ -52,13 +72,22 @@ data Component = Component
     }
     deriving (Show, Eq)
 
+{-| Convert a coverability problem into a GVASS problem.
+    This doesn't actually provide any new insights, but it allows us to
+    abuse the existing specification formats to provide reachability problems
+    as well as coverability problems.
 
+    Note that this makes the target go from the standard coverability metric
+    to the standard reachability metric! To perform coverability with this
+    tool, see 'Data.Kosaraju.Cov.kosChecker'.
+-}
 generaliseSpec :: CovProblem -> GVASS
 generaliseSpec (CovProblem vass initial target) = generalise vass initial target
 
 
--- | Lift a regular VASS so that it can be used in the generalised setting.
--- | IE. take a VASS from "setting 1" to "setting 3" in Sławek's paper.
+{-| Lift a regular VASS so that it can be used in the generalised setting.
+    IE. take a VASS from "setting 1" to "setting 3" in Sławek's note.
+-}
 generalise :: VASS -> Conf -> Conf -> GVASS
 generalise VASS{..} (Configuration iS iV) (Configuration fS fV) = GVASS
     [ Component
@@ -133,7 +162,7 @@ unconstrainFinal coord c@Component{..} = c
         }
 
 
--- Set the initial constrained coordinate set to a specific vector.
+-- | Set the initial constrained coordinate set to a specific vector.
 setInitial :: SparseVector Integer -> Component -> Component
 setInitial vec c@Component{..} = c
         { initialConstrainedCoords   = coords
@@ -142,7 +171,7 @@ setInitial vec c@Component{..} = c
         }
         where coords = Set.fromList $ Map.keys vec
 
--- Set the final constrained coordinate set to a specific vector.
+-- | Set the final constrained coordinate set to a specific vector.
 setFinal :: SparseVector Integer -> Component -> Component
 setFinal vec c@Component{..} = c
         { finalConstrainedCoords   = coords
@@ -151,6 +180,7 @@ setFinal vec c@Component{..} = c
         }
         where coords = Set.fromList $ Map.keys vec
 
+-- | Set the delta between one component and the next to a fixed value.
 setAdjoinment :: Maybe (Vector Integer) -> Component -> Component
 setAdjoinment vec c@Component{..} = c { adjoinment = vec }
 
@@ -189,11 +219,12 @@ instance {-# OVERLAPS #-} Show (Set Integer) where
 
 
 
-
+--------------------------------------------------------------------------------
 -- * Helpers
 
--- We can measure the meaningful size of a system by the number of components it has.
-
+{-| We can measure the meaningful size of a system by the number of components 
+    it has.
+-}
 class TotalComponents a where
     totalComponents :: a -> Int
 
@@ -204,18 +235,21 @@ instance TotalComponents GVASS     where
 instance TotalComponents [GVASS]   where 
     totalComponents                    = sum . map totalComponents
 
-
+{-| Highly polymorphic: get all elements in a range, like the range() function
+    in Python.
+-}
 range :: (Integral a, IsList (f a), Item (f a) ~ a) => a -> f a
 range x = [0 .. x-1]
 
+-- | @allCoords@ is just a monomorphic wrapper around 'range'.
 allCoords :: Integer -> Set Coordinate
 allCoords = range
 
--- Get only the (dense) delta resulting from the application of the transition.
+-- | Get only the (dense) delta resulting from the application of the transition.
 flatten :: Transition -> Vector Integer
 flatten (Transition name pre post nextState) = Vector.zipWith (-) post pre
 
--- Convert a dense vector into a sparse one, where zeroes will be omitted.
+-- | Convert a dense vector into a sparse one, where zeroes will be omitted.
 makeSparseCoords :: Vector Integer -> SparseVector Coordinate
 makeSparseCoords vs = Map.fromList 
         [ (fromIntegral i, j)
@@ -223,5 +257,12 @@ makeSparseCoords vs = Map.fromList
         , j /= 0
         ]
 
+{-| Convert a sparse vector into a dense one, where zeroes are inserted in
+    unknown places.
+
+    We have to provide a dimension component so that we can fill zeroes
+    right to the end of the vector.
+-}
 makeDenseCoords :: SparseVector Integer -> Integer -> Vector Integer
-makeDenseCoords sparse dimension = fmap (\p -> Map.findWithDefault 0 p sparse) (range dimension)
+makeDenseCoords sparse dimension 
+    = fmap (\p -> Map.findWithDefault 0 p sparse) (range dimension)

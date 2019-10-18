@@ -8,7 +8,7 @@ import Data.Map (Map)
 import Data.GVASS
 import Data.VASS
 
-{- A GVASS consisting of one component with two states.
+{- | A GVASS consisting of one component with two states.
     SCC decomposition should give us one GVASS comprising two components,
     each with one state.
 -}
@@ -40,7 +40,7 @@ ex1 = GVASS
         }
     ]
 
-{- A GVASS consisting of two components. The second component is simple;
+{- | A GVASS consisting of two components. The second component is simple;
     the first is a graph with two routes of length 3.
     SCC decomposition should give two GVASSs each of four components.
 -}
@@ -107,7 +107,7 @@ ex2 = GVASS
 
 
 
-{- The same initial component as in ex2, but repeated in order to test that
+{- | The same initial component as in ex2, but repeated in order to test that
    the combinations are correctly identified.
 -}
 ex3 :: GVASS
@@ -196,7 +196,7 @@ ex3 = GVASS
     ]
 
 
--- The example described by Ranko in his paper.
+-- | The example described by Ranko in his paper.
 ex4 :: GVASS
 ex4 = GVASS
     [ Component
@@ -346,7 +346,10 @@ ex4 = GVASS
     }
     ]
 
-
+{-| A very simple , parameterized example. The transition t0
+    will need to be expanded out X times, and we would expect
+    a proportional effect on the size of problems submitted to z3 in theta-one.
+-}
 ex5 :: Integer -> GVASS
 ex5 maxVal = GVASS
     [ Component
