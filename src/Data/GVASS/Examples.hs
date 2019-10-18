@@ -346,7 +346,10 @@ ex4 = GVASS
     }
     ]
 
--- | A very simple , parameterized example.
+{-| A very simple , parameterized example. The transition t0
+    will need to be expanded out X times, and we would expect
+    a proportional effect on the size of problems submitted to z3 in theta-one.
+-}
 ex5 :: Integer -> GVASS
 ex5 maxVal = GVASS
     [ Component

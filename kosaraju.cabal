@@ -1,10 +1,10 @@
 cabal-version: 1.12
 
--- This file has been generated from package.yaml by hpack version 0.31.1.
+-- This file has been generated from package.yaml by hpack version 0.31.2.
 --
 -- see: https://github.com/sol/hpack
 --
--- hash: 4959c58a6e468e95b157986d05a842e369e53102c11db072a914b52ee54e03a8
+-- hash: d91c35b893f2ef60d90a984638b75ecb97f58cbfae6fc4116db8c3a87430f30b
 
 name:           kosaraju
 version:        0.1.0.0
@@ -29,13 +29,15 @@ library
       Data.GVASS.SCC
       Kosaraju
       Kosaraju.Cov
+      LDN
   other-modules:
       Paths_kosaraju
   hs-source-dirs:
       src
   default-extensions: TypeSynonymInstances FlexibleInstances UnicodeSyntax RecordWildCards OverloadedStrings OverloadedLists QuasiQuotes LambdaCase MultiWayIf TupleSections DuplicateRecordFields BangPatterns GADTs
   build-depends:
-      base >=4.7 && <5
+      async
+    , base >=4.7 && <5
     , containers
     , duvet
     , filepath
@@ -44,12 +46,13 @@ library
     , mtl
     , pretty-simple
     , sbv ==8.2
+    , silently
     , text
     , vass
     , vector
   default-language: Haskell2010
 
-executable duvet
+executable kosaraju
   main-is: Main.hs
   other-modules:
       Paths_kosaraju
@@ -58,7 +61,8 @@ executable duvet
   default-extensions: TypeSynonymInstances FlexibleInstances UnicodeSyntax RecordWildCards OverloadedStrings OverloadedLists QuasiQuotes LambdaCase MultiWayIf TupleSections DuplicateRecordFields BangPatterns GADTs
   ghc-options: -threaded -rtsopts -with-rtsopts=-N
   build-depends:
-      base >=4.7 && <5
+      async
+    , base >=4.7 && <5
     , containers
     , duvet
     , filepath
@@ -68,6 +72,7 @@ executable duvet
     , mtl
     , pretty-simple
     , sbv ==8.2
+    , silently
     , text
     , vass
     , vector
@@ -83,7 +88,8 @@ test-suite kosaraju-test
   default-extensions: TypeSynonymInstances FlexibleInstances UnicodeSyntax RecordWildCards OverloadedStrings OverloadedLists QuasiQuotes LambdaCase MultiWayIf TupleSections DuplicateRecordFields BangPatterns GADTs
   ghc-options: -threaded -rtsopts -with-rtsopts=-N
   build-depends:
-      base >=4.7 && <5
+      async
+    , base >=4.7 && <5
     , containers
     , duvet
     , filepath
@@ -94,6 +100,7 @@ test-suite kosaraju-test
     , mtl
     , pretty-simple
     , sbv ==8.2
+    , silently
     , text
     , vass
     , vector

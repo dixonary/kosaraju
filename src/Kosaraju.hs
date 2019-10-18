@@ -7,7 +7,7 @@ the Reachability decision problem over Vector Addition Systems with States.
 module Kosaraju where
 
 import Data.SBV
-import Documentation.SBV.Examples.Existentials.Diophantine (ldn, basis, Solution(..))
+import Documentation.SBV.Examples.Existentials.Diophantine (Solution(..))
 
 import Data.List ((\\), elemIndex, find, transpose, concat, concatMap)
 import Data.Map.Strict (Map)
@@ -50,6 +50,8 @@ import Text.Pretty.Simple
 import Debug.Trace
 import Text.Printf
 
+import LDN (ldn)
+
 
 --------------------------------------------------------------------------------
 -- * Kosaraju's Algorithm
@@ -73,6 +75,9 @@ kosaraju' :: [GVASS] -> IO KosarajuResult
 kosaraju' vs' = do
     -- Ensure that the GVASSs are all fully decomposed by the SCC decomposition.
     let vs = map makeRigid $ concatMap decompGVASS vs'
+
+    putStrLn $ "There are " <> show (length vs') <> " GVASSs."
+    putStrLn $ "There are " <> show (length vs) <> " decomposed GVASSs with size(s) " <> show (totalComponents <$> vs) <> "."
 
     -- Check θ₁,θ₂  for ALL vasses
     -- If it fails, then refine or give up if it cannot be refined
@@ -335,7 +340,7 @@ runILP (GVASS components) = do
     -- pPrint $ allVarsDense
 
 
-    results <- ldn Nothing allVarsDense
+    results <- ldn allVarsDense
     
     let (bases, periods) = case results of
             Homogeneous      p -> ([], p)
