@@ -106,13 +106,11 @@ kosaraju' vs' = do
                         [g] | g == gvass -> return KosarajuDoesNotHold
                         _   -> kosaraju' refinedVs
 
-        mgood :: [GVASS] -> IO KosarajuResult
-        mgood systems = do
-            results <- mapM checkGVASS systems
-            return $ foldr1 pmax results
+        mgood :: [GVASS] -> KosarajuResult
+        mgood systems = foldr1 pmax $ unsafePerformIO . checkGVASS <$> systems
 
     -- If ANY of our GVASSs validate θ, then we retire happy
-    mgood vs
+    return $ mgood vs
 
 
 

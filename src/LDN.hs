@@ -46,6 +46,9 @@ basis m = do
         cond = do 
             as <- mkExistVars  n
             bs <- mkForallVars n
+
+            setLogic AUFLIA
+
             return $ ok as .&&  (ok bs .=> as .== bs .|| sNot (bs `less` as))
         n = if null m then 0 else length (head m)
         ok xs = sAny (.> 0) xs .&& sAll (.>= 0) xs .&& sAnd [sum (zipWith (*) r xs) .== 0 | r <- m]
