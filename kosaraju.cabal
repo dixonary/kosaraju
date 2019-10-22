@@ -4,7 +4,7 @@ cabal-version: 1.12
 --
 -- see: https://github.com/sol/hpack
 --
--- hash: 6d32beb7e7a85c2b5874aa055ca25fe7efcefd96c53ba4c31d9dfff0cca1daeb
+-- hash: 9e4efbac015f83c923ee20768a478a7edcd3f1df2bbafa0900be540cfcbe035f
 
 name:           kosaraju
 version:        0.1.0.0
@@ -34,7 +34,7 @@ library
       Paths_kosaraju
   hs-source-dirs:
       src
-  default-extensions: TypeSynonymInstances FlexibleInstances UnicodeSyntax RecordWildCards OverloadedStrings OverloadedLists QuasiQuotes LambdaCase MultiWayIf TupleSections DuplicateRecordFields BangPatterns GADTs RankNTypes
+  default-extensions: TypeSynonymInstances FlexibleInstances UnicodeSyntax RecordWildCards OverloadedStrings OverloadedLists QuasiQuotes LambdaCase MultiWayIf TupleSections DuplicateRecordFields BangPatterns GADTs StandaloneDeriving
   build-depends:
       async
     , base >=4.7 && <5
@@ -46,9 +46,10 @@ library
     , mtl
     , optparse-applicative
     , pretty-simple
-    , sbv ==8.2
+    , sbv ==8.5
     , silently
     , text
+    , unamb
     , vass
     , vector
   default-language: Haskell2010
@@ -59,7 +60,7 @@ executable kosaraju
       Paths_kosaraju
   hs-source-dirs:
       app
-  default-extensions: TypeSynonymInstances FlexibleInstances UnicodeSyntax RecordWildCards OverloadedStrings OverloadedLists QuasiQuotes LambdaCase MultiWayIf TupleSections DuplicateRecordFields BangPatterns GADTs RankNTypes
+  default-extensions: TypeSynonymInstances FlexibleInstances UnicodeSyntax RecordWildCards OverloadedStrings OverloadedLists QuasiQuotes LambdaCase MultiWayIf TupleSections DuplicateRecordFields BangPatterns GADTs StandaloneDeriving
   ghc-options: -threaded -rtsopts -with-rtsopts=-N
   build-depends:
       async
@@ -73,9 +74,10 @@ executable kosaraju
     , mtl
     , optparse-applicative
     , pretty-simple
-    , sbv ==8.2
+    , sbv ==8.5
     , silently
     , text
+    , unamb
     , vass
     , vector
   default-language: Haskell2010
@@ -87,7 +89,7 @@ test-suite kosaraju-test
       Paths_kosaraju
   hs-source-dirs:
       test
-  default-extensions: TypeSynonymInstances FlexibleInstances UnicodeSyntax RecordWildCards OverloadedStrings OverloadedLists QuasiQuotes LambdaCase MultiWayIf TupleSections DuplicateRecordFields BangPatterns GADTs RankNTypes
+  default-extensions: TypeSynonymInstances FlexibleInstances UnicodeSyntax RecordWildCards OverloadedStrings OverloadedLists QuasiQuotes LambdaCase MultiWayIf TupleSections DuplicateRecordFields BangPatterns GADTs StandaloneDeriving
   ghc-options: -threaded -rtsopts -with-rtsopts=-N
   build-depends:
       async
@@ -102,9 +104,10 @@ test-suite kosaraju-test
     , mtl
     , optparse-applicative
     , pretty-simple
-    , sbv ==8.2
+    , sbv ==8.5
     , silently
     , text
+    , unamb
     , vass
     , vector
   default-language: Haskell2010

@@ -2,13 +2,20 @@
 
 {-| This is an implementation of a linear diophantine equation solver by Levent Erkok.
 
-It has been modified by me (Alex Dixon) to work with cvc4 and not z3 as a comparison .-}
+It has been modified by me (Alex Dixon) to check against all installed solvers.-}
 module LDN where
 
 import Data.SBV
 import Data.SBV.Trans.Control
 import Control.Concurrent.Async (async, waitAny, waitAnyCancel)
 import Documentation.SBV.Examples.Existentials.Diophantine (Solution(..))
+import Data.Maybe (listToMaybe)
+import Data.List (intersect)
+import Data.Function (on)
+
+import Data.Char(toLower)
+
+import System.Environment.Blank
 
 --------------------------------------------------------------------------------------------------
 -- * Solving diophantine equations
@@ -30,8 +37,11 @@ ldn problem = do
         m   | homogeneous = lhs
             | True        = zipWith (\x y -> -x : y) rhs lhs
 
+
 basis :: [[SInteger]] -> IO [[Integer]]
-basis m = extractModels <$> allSatWith cvc4 {-[z3{solverSetOptions = [SetLogic $ QF_LIA]}, cvc4]-} cond
+basis m = do
+    solver <- chooseSolver
+    extractModels <$> allSatWith solver cond
     where 
         cond = do 
             as <- mkExistVars  n
@@ -41,10 +51,29 @@ basis m = extractModels <$> allSatWith cvc4 {-[z3{solverSetOptions = [SetLogic $
         ok xs = sAny (.> 0) xs .&& sAll (.>= 0) xs .&& sAnd [sum (zipWith (*) r xs) .== 0 | r <- m]
         as `less` bs = sAnd (zipWith (.<=) as bs) .&& sOr (zipWith (.<) as bs)
 
--- sbvWithAny :: Provable a => [SMTConfig] -> (SMTConfig -> a -> IO b) -> a -> IO (Solver, b)
--- sbvWithAny []      _    _ = error "SBV.withAny: No solvers given!"
--- sbvWithAny solvers what a = snd `fmap` (mapM try solvers >>= waitAnyCancel)
---    where 
---     try s = async $ what s a >>= \r -> return (name (solver s), r)
 
--- allSatWithAny = (`sbvWithAny` allSatWith)
+instance Eq SMTConfig where (==) = (==) `on` solver
+instance Eq SMTSolver where (==) = (==) `on` name
+deriving instance Eq Solver
+
+chooseSolver :: IO SMTConfig
+chooseSolver = do
+
+    solverEnvironmentVar <- getEnv "KOSARAJU_SOLVER"
+    case fmap toLower <$> solverEnvironmentVar of
+        Just "z3" -> return z3
+        Just "cvc4" -> return cvc4
+        _ -> findSolver
+
+findSolver :: IO SMTConfig
+findSolver = do
+    availableSolvers <- sbvAvailableSolvers
+
+    let usableSolvers = availableSolvers `intersect` [z3, cvc4]
+        firstSolver   = listToMaybe usableSolvers
+
+    case firstSolver of
+        Nothing -> error $ "You do not have a solver available on your system."
+                        <> " Please install either z3 or cvc4 and ensure it is"
+                        <> " available on your $PATH."
+        Just solver -> return solver

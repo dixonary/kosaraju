@@ -37,7 +37,7 @@ maintainer: alexander.dixon@warwick.ac.uk
 dependencies:
 - vector
 - base >= 4.7 && < 5
-- sbv == 8.2
+- sbv == 8.5
 - containers
 - mtl
 - filepath
@@ -50,6 +50,7 @@ dependencies:
 - silently
 - async
 - optparse-applicative
+- unamb
 
 
 default-extensions:
@@ -66,4 +67,4 @@ default-extensions:
 - DuplicateRecordFields
 - BangPatterns
 - GADTs
-- RankNTypes
+- StandaloneDeriving

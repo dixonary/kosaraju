@@ -29,17 +29,13 @@ import Data.VASS
 import Data.Functor ((<&>))
 import Data.Bifunctor (first, second)
 import Data.Function ((&), on)
-import Control.Monad (when, forM)
+import Control.Monad (when, forM, foldM)
 import Data.Foldable (foldrM, maximumBy, toList)
 import Data.Ord (comparing)
 import Data.Maybe hiding (catMaybes)
 
 import Data.Tree (Tree(..))
 import qualified Data.Tree as Tree
-
-import Control.Monad.Trans as MTL
-import qualified Control.Monad.State as MTL
-import Control.Monad.Except
 
 import System.IO.Unsafe
 
@@ -51,6 +47,7 @@ import Debug.Trace
 import Text.Printf
 
 import LDN (ldn)
+import Data.Unamb -- Parallel evaluation strategy
 
 
 --------------------------------------------------------------------------------
@@ -81,7 +78,7 @@ kosaraju' vs' = do
 
     -- Check θ₁,θ₂  for ALL vasses
     -- If it fails, then refine or give up if it cannot be refined
-    let checkVASS gvass = do
+    let checkGVASS gvass = do
             -- pPrint gvass
             thetaOne <- θ₁ gvass
             thetaTwo <- θ₂ gvass
@@ -109,15 +106,10 @@ kosaraju' vs' = do
                         [g] | g == gvass -> return KosarajuDoesNotHold
                         _   -> kosaraju' refinedVs
 
-
         mgood :: [GVASS] -> IO KosarajuResult
-        mgood []  = return $ KosarajuHolds $ GVASS []
-        mgood [g] = checkVASS g
-        mgood (g:xs) = do
-            res <- checkVASS g
-            case res of
-                KosarajuHolds gvass -> return $ KosarajuHolds gvass
-                KosarajuDoesNotHold -> mgood xs
+        mgood systems = do
+            results <- mapM checkGVASS systems
+            return $ foldr1 pmax results
 
     -- If ANY of our GVASSs validate θ, then we retire happy
     mgood vs
@@ -703,7 +695,25 @@ data ThetaTwoResult = ThetaTwoHolds
 
 -- | What is the outcome of evaluating kosaraju as a whole?
 data KosarajuResult = KosarajuHolds GVASS | KosarajuDoesNotHold
-        deriving (Eq, Show)
+
+instance Show KosarajuResult where
+    show (KosarajuHolds _  ) = "Reachable"
+    show KosarajuDoesNotHold = "Unreachable"
+
+-- We define a result of KosarajuHolds as the 'maximum bound'.
+instance Eq KosarajuResult where
+    KosarajuDoesNotHold == KosarajuHolds _     = False
+    KosarajuHolds _     == KosarajuDoesNotHold = False
+    _                   == _                   = True
+
+instance Bounded KosarajuResult where
+    minBound = KosarajuDoesNotHold
+    maxBound = KosarajuHolds (GVASS mempty)
+
+instance Ord KosarajuResult where
+    KosarajuDoesNotHold `compare` KosarajuHolds _     = LT
+    KosarajuHolds _     `compare` KosarajuDoesNotHold = GT
+    _                   `compare` _                   = EQ
 
 {-| θ₂ is performed both forward and backward. We use this to track which
     direction the violation was found in, so that we can constrain the initial
