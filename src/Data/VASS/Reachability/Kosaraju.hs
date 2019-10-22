@@ -4,12 +4,12 @@ An implementation of Kosaraju's famous algorithm which implements
 the Reachability decision problem over Vector Addition Systems with States.
 -}
 
-module Kosaraju where
+module Data.VASS.Reachability.Kosaraju where
 
 import Data.SBV
 import Documentation.SBV.Examples.Existentials.Diophantine (Solution(..))
 
-import Data.List ((\\), elemIndex, find, transpose, concat, concatMap)
+import Data.List ((\\), elemIndex, find, transpose, concat, concatMap, nub)
 import Data.Map.Strict (Map)
 import qualified Data.Vector as Vector
 import Data.Vector (Vector)
@@ -131,7 +131,7 @@ kosaraju' vs' = do
 {-| Coordinates which become rigid are no longer considered part of a component - 
     the values cannot be manipulated by any operations inside of the component.
 
-    Marking a component as rigid means fewer computations have to be done
+    Marking a coordinate as rigid means fewer computations have to be done
     at later stages. Kosaraju tries to mark the maximal number of coordinates as 
     rigid wherever possible.
 -}
@@ -190,11 +190,11 @@ makeRigid (GVASS components) = GVASS
             let firstFailM = listToMaybe $ filter isFail vars
                     where isFail var = all (== 0) $ snd $ bpByVar Map.! var
 
-                maxVal var   = maximum $ fst $ bpByVar Map.! var
+                allValues var   = nub $ fst $ bpByVar Map.! var
 
             return $ case firstFailM of
                 Nothing  -> ThetaOneHolds
-                Just var -> ThetaOneFails var (maxVal var)
+                Just var -> ThetaOneFails var (allValues var)
 
 
 
@@ -339,7 +339,6 @@ runILP (GVASS components) = do
     -- putStrLn "=====THETA1 INPUT (RAW)====="
     -- pPrint $ allVarsDense
 
-
     results <- ldn allVarsDense
     
     let (bases, periods) = case results of
@@ -390,21 +389,22 @@ refineθ₁ :: GVASS -> ThetaOneResult -> IO [GVASS]
 -- Don't bother if there are no solutions
 refineθ₁ g ThetaOneHasNoSolutions = return [g]
 
-refineθ₁ g@(GVASS components) (ThetaOneFails (ILPCoord cindex pos coord) maxVal) = do
+refineθ₁ g@(GVASS components) (ThetaOneFails (ILPCoord cindex pos coord) allValues) = do
     let component@Component{..} = components !! cindex
 
     case pos of 
         Initial -> do
             putStrLn "Refining by constraining on all possible initial values..."
-        -- Refine by all possible constraints on initial coordinate
-            return [ modifyComponent g cindex (constrainInitial coord val) | val <- [0..maxVal] ]
+            -- return [ modifyComponent g cindex (constrainInitial coord val) | val <- [0..maxVal] ]
+            return [ modifyComponent g cindex (constrainInitial coord val) | val <- allValues ]
+
 
         Final -> do
             putStrLn "Refining by constraining on all possible final values..."
-        -- Refine by all possible constraints on final coordinate
-            return [ modifyComponent g cindex (constrainFinal coord val) | val <- [0..maxVal] ]
+            -- return [ modifyComponent g cindex (constrainFinal coord val) | val <- [0..maxVal] ]
+            return [ modifyComponent g cindex (constrainFinal coord val) | val <- allValues ]
   
-refineθ₁ g@(GVASS components) (ThetaOneFails (ILPTrans cindex tname) maxVal) = do
+refineθ₁ g@(GVASS components) (ThetaOneFails (ILPTrans cindex tname) allValues) = do
     putStrLn "Refining by exploding a bounded transition..."
 
     let c@Component{..} = components !! cindex
@@ -428,7 +428,7 @@ refineθ₁ g@(GVASS components) (ThetaOneFails (ILPTrans cindex tname) maxVal) 
             where freeComponent = unconstrainAll component'
                   component'    = removeTransition tname component
 
-    return $ map (\i -> expandComponent g cindex (makeChain i)) [0..maxVal]
+    return $ map (\i -> expandComponent g cindex (makeChain i)) allValues
 
 
 
@@ -692,7 +692,7 @@ boundCoord coord maxVal v@Component{..} = let
 
 -- | What is the outcome of evaluating θ₁?
 data ThetaOneResult = ThetaOneHolds 
-                    | ThetaOneFails ILPVar Integer
+                    | ThetaOneFails ILPVar [Integer]
                     | ThetaOneHasNoSolutions
                     deriving (Eq, Show)
 

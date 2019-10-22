@@ -4,7 +4,7 @@ cabal-version: 1.12
 --
 -- see: https://github.com/sol/hpack
 --
--- hash: d91c35b893f2ef60d90a984638b75ecb97f58cbfae6fc4116db8c3a87430f30b
+-- hash: 6d32beb7e7a85c2b5874aa055ca25fe7efcefd96c53ba4c31d9dfff0cca1daeb
 
 name:           kosaraju
 version:        0.1.0.0
@@ -14,7 +14,7 @@ bug-reports:    https://github.com/dixonary/kosaraju/issues
 author:         Alex Dixon
 maintainer:     alexander.dixon@warwick.ac.uk
 copyright:      2019 Alex Dixon
-license:        BSD3
+license:        GPL-3
 license-file:   LICENSE
 build-type:     Simple
 
@@ -27,14 +27,14 @@ library
       Data.GVASS
       Data.GVASS.Examples
       Data.GVASS.SCC
-      Kosaraju
-      Kosaraju.Cov
+      Data.VASS.Coverability.Kosaraju
+      Data.VASS.Reachability.Kosaraju
       LDN
   other-modules:
       Paths_kosaraju
   hs-source-dirs:
       src
-  default-extensions: TypeSynonymInstances FlexibleInstances UnicodeSyntax RecordWildCards OverloadedStrings OverloadedLists QuasiQuotes LambdaCase MultiWayIf TupleSections DuplicateRecordFields BangPatterns GADTs
+  default-extensions: TypeSynonymInstances FlexibleInstances UnicodeSyntax RecordWildCards OverloadedStrings OverloadedLists QuasiQuotes LambdaCase MultiWayIf TupleSections DuplicateRecordFields BangPatterns GADTs RankNTypes
   build-depends:
       async
     , base >=4.7 && <5
@@ -44,6 +44,7 @@ library
     , karp-miller
     , megaparsec
     , mtl
+    , optparse-applicative
     , pretty-simple
     , sbv ==8.2
     , silently
@@ -58,7 +59,7 @@ executable kosaraju
       Paths_kosaraju
   hs-source-dirs:
       app
-  default-extensions: TypeSynonymInstances FlexibleInstances UnicodeSyntax RecordWildCards OverloadedStrings OverloadedLists QuasiQuotes LambdaCase MultiWayIf TupleSections DuplicateRecordFields BangPatterns GADTs
+  default-extensions: TypeSynonymInstances FlexibleInstances UnicodeSyntax RecordWildCards OverloadedStrings OverloadedLists QuasiQuotes LambdaCase MultiWayIf TupleSections DuplicateRecordFields BangPatterns GADTs RankNTypes
   ghc-options: -threaded -rtsopts -with-rtsopts=-N
   build-depends:
       async
@@ -70,6 +71,7 @@ executable kosaraju
     , kosaraju
     , megaparsec
     , mtl
+    , optparse-applicative
     , pretty-simple
     , sbv ==8.2
     , silently
@@ -85,7 +87,7 @@ test-suite kosaraju-test
       Paths_kosaraju
   hs-source-dirs:
       test
-  default-extensions: TypeSynonymInstances FlexibleInstances UnicodeSyntax RecordWildCards OverloadedStrings OverloadedLists QuasiQuotes LambdaCase MultiWayIf TupleSections DuplicateRecordFields BangPatterns GADTs
+  default-extensions: TypeSynonymInstances FlexibleInstances UnicodeSyntax RecordWildCards OverloadedStrings OverloadedLists QuasiQuotes LambdaCase MultiWayIf TupleSections DuplicateRecordFields BangPatterns GADTs RankNTypes
   ghc-options: -threaded -rtsopts -with-rtsopts=-N
   build-depends:
       async
@@ -98,6 +100,7 @@ test-suite kosaraju-test
     , kosaraju
     , megaparsec
     , mtl
+    , optparse-applicative
     , pretty-simple
     , sbv ==8.2
     , silently

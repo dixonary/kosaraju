@@ -2,16 +2,67 @@ module Main where
     
 import qualified Duvet
 
-import Kosaraju.Cov
-import Kosaraju
+import Data.GVASS
 import Data.GVASS.Examples
+
+import Data.VASS.Read
+import Data.VASS.Coverability
+import Data.VASS.Coverability.Kosaraju
 import Data.VASS.Coverability.KarpMiller.Duvet
+
+import Data.VASS.Reachability.Kosaraju
+
+import Options.Applicative
 
 import System.IO.Silently
 
 -- TODO: Replace this with a "proper" reachability frontend
 main :: IO ()
-main = Duvet.runDuvet [kosChecker, karpMillerChecker]
+main = do
+    KReachOptions{..} <- execParser $ optParser `info` mempty
+
+    problem <- readAny file
+
+    let withVerbosity = if quiet then silence else id
+        runMode :: IO String
+        runMode       = case mode of
+            KReach -> reach problem
+            KCover -> cover problem
+
+    result <- withVerbosity $ runMode
+    putStrLn result
+
+reach :: CovProblem -> IO String
+reach problem = do
+    let gvass = generaliseSpec problem
+    res <- kosaraju gvass
+    return $ show res
+
+cover :: CovProblem -> IO String
+cover problem = do
+    res <- kosarajuCover problem
+    return $ show res
+
+
+optParser :: Parser KReachOptions
+optParser = KReachOptions
+    <$> switch (long "quiet" <> short 'q' <> help "Hide intermediate output")
+    <*> (
+            flag' KReach (long "reach" <> short 'r' <> help "Treat as reachability problem (default)")
+            <|>
+            flag' KCover (long "cover" <> short 'c' <> help "Treat as coverability problem, by reduction to reachability")
+            <|>
+            pure KReach 
+        )
+    <*> strArgument (metavar "FILENAME" <> help "The file to run the checker on.")
+
+data KReachOptions = KReachOptions {
+    quiet :: Bool,
+    mode  :: KReachMode,
+    file  :: FilePath
+}
+
+data KReachMode = KReach | KCover
 
 --main = silence $ kosaraju (ex5 currentVal) >>= print
 

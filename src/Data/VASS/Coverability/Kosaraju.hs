@@ -1,19 +1,22 @@
 {- | Use the standard COV->REACH reduction to determine whether some 
-    state is coverable. In this way, we can use this program as an 
-    implementation of a coverability checker.
+    state is coverable with Kosaraju's reachability algorithm.
+    In this way, we can use this KReach as an implementation of a 
+    coverability checker.
 -}
-module Kosaraju.Cov where
+module Data.VASS.Coverability.Kosaraju where
 
 import Data.VASS
 import Data.VASS.Coverability
+import Data.VASS.Reachability.Kosaraju
+
 import Data.GVASS
+
 import qualified Data.Vector as Vector
 import Data.Vector (Vector)
 import qualified Data.Map as Map
 import qualified Data.Set as Set
 import Data.Function ((&))
 import Text.Pretty.Simple
-import Kosaraju
 import Data.Coerce
 import Data.Functor (($>))
 

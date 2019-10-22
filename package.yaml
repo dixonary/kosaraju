@@ -3,7 +3,7 @@ version: 0.1.0.0
 extra-source-files: []
 author: Alex Dixon
 github: dixonary/kosaraju
-license: BSD3
+license: GPL-3
 
 description: Please see the README on GitHub at <https://github.com/dixonary/kosaraju#readme>
 
@@ -49,6 +49,7 @@ dependencies:
 - duvet
 - silently
 - async
+- optparse-applicative
 
 
 default-extensions:
@@ -65,3 +66,4 @@ default-extensions:
 - DuplicateRecordFields
 - BangPatterns
 - GADTs
+- RankNTypes
