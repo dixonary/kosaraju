@@ -6,8 +6,12 @@ packages:
 extra-deps: 
 - sbv-8.5@sha256:62217ddd7a29e14e75286cba4b406187f37df63fd48f356a6639e3f9c82a18c0,19781
 - unamb-0.2.7@sha256:ce5db0575bca8ca04c9e9dce3ba75b6f9e5ceea834c6ba4fae45aca6fa963334,2385
-- ../vass
-- ../karp-miller
-- ../duvet
+- git: https://github.com/dixonary/vass
+  commit: 21020e8246353f14042c4e8070a6af093e2aebf2
+- git: https://github.com/dixonary/duvet
+  commit: 1cb22f34ed52ed5f8ca6ce639696cdc7c4c4e1f0
+- git: https://github.com/dixonary/karp-miller
+  commit: ea1c95fb5135dfacaaea3cf3dea569403c5cb902
+
 
 resolver: lts-13.27 # GHC 8.6.5a
