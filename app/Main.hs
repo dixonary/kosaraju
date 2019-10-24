@@ -44,6 +44,7 @@ cover problem = do
     res <- kosarajuCover problem
     return $ show res
 
+
 data KReachMode    
     = KReach 
     | KCover
@@ -54,6 +55,7 @@ data KReachOptions = KReachOptions
     , file  :: FilePath
     }
 
+    
 optParser :: Parser KReachOptions
 optParser = KReachOptions
     <$> switch (long "quiet" <> short 'q' <> help "Hide intermediate output")
@@ -65,8 +67,3 @@ optParser = KReachOptions
             pure KReach 
         )
     <*> strArgument (metavar "FILENAME" <> help "The file to run the checker on.")
-
-
-
--- main = silence $ kosaraju (ex5 currentVal) >>= print
--- currentVal = 11

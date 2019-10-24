@@ -57,7 +57,9 @@ import Data.Unamb -- Parallel evaluation strategy
     Call Kosaraju's algorithm with a singular GVASS.
 -}
 kosaraju :: GVASS -> IO KosarajuResult
-kosaraju g = kosaraju' [g]
+kosaraju g = do
+    pPrint g
+    kosaraju' [g]
 
 {- | The recursive Kosaraju algorithm is a depth-first search on the decomposition tree
     rooted by the original GVASS. 
@@ -74,7 +76,7 @@ kosaraju' vs' = do
     let vs = map makeRigid $ concatMap decompGVASS vs'
 
     putStrLn $ "There are " <> show (length vs') <> " GVASSs."
-    putStrLn $ "There are " <> show (length vs) <> " decomposed GVASSs with size(s) " <> show (totalComponents <$> vs) <> "."
+    putStrLn $ "After SCC decomposition there are " <> show (length vs) <> " GVASSs with size(s) " <> show (totalComponents <$> vs) <> "."
 
     -- Check θ₁,θ₂  for ALL vasses
     -- If it fails, then refine or give up if it cannot be refined
