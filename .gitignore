@@ -1,4 +1,5 @@
 .stack-work/
 kosaraju-testing.cabal
 *~
-.vscode
+.vscode/
+artifact/
