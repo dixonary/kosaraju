@@ -11,7 +11,7 @@ extra-deps:
 - git: https://github.com/dixonary/duvet
   commit: 1cb22f34ed52ed5f8ca6ce639696cdc7c4c4e1f0
 - git: https://github.com/dixonary/karp-miller
-  commit: ea1c95fb5135dfacaaea3cf3dea569403c5cb902
+  commit: cf24259b56dc36f30ab8f4f6e19a31709cbf1038
 
 
 resolver: lts-13.27 # GHC 8.6.5a
