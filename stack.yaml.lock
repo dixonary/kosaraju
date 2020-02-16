@@ -18,6 +18,48 @@ packages:
       sha256: c3c4ac7408c2999b6779714459d2433ff2495f90161d7c3ca349ca3aa6386be8
   original:
     hackage: unamb-0.2.7@sha256:ce5db0575bca8ca04c9e9dce3ba75b6f9e5ceea834c6ba4fae45aca6fa963334,2385
+- completed:
+    cabal-file:
+      size: 1487
+      sha256: 5935c153e8f659329f4aa61a65c25fa54aff0ef198ec04e9247040f3bc0c7eb5
+    name: vass
+    version: 1.0.0.0
+    git: https://github.com/dixonary/vass
+    pantry-tree:
+      size: 856
+      sha256: 5d120c228e32db49d8957bf7bac92c6c08aba84454f9df28047fe76ebe9e25c4
+    commit: 21020e8246353f14042c4e8070a6af093e2aebf2
+  original:
+    git: https://github.com/dixonary/vass
+    commit: 21020e8246353f14042c4e8070a6af093e2aebf2
+- completed:
+    cabal-file:
+      size: 1932
+      sha256: 4d34a978c0e3c3ae8d0eda20fc4716c770c18cf2b2d4c522317dc8adff6d3dc6
+    name: duvet
+    version: 1.0.0.0
+    git: https://github.com/dixonary/duvet
+    pantry-tree:
+      size: 863
+      sha256: b608937edf5b8e0af14a8c3642be6ec9dac280deb3353a23d71938deaad71b74
+    commit: 1cb22f34ed52ed5f8ca6ce639696cdc7c4c4e1f0
+  original:
+    git: https://github.com/dixonary/duvet
+    commit: 1cb22f34ed52ed5f8ca6ce639696cdc7c4c4e1f0
+- completed:
+    cabal-file:
+      size: 2133
+      sha256: 65b661829522e2aa99e0d7f0063a99a8689b27a39a5c9f92a014e421db8ddd4c
+    name: karp-miller
+    version: 0.1.0.0
+    git: https://github.com/dixonary/karp-miller
+    pantry-tree:
+      size: 1270
+      sha256: 106d369886b90b56714be3f4d0d3e754ba50b39d46c50afaa30b97aca6c90a61
+    commit: cf24259b56dc36f30ab8f4f6e19a31709cbf1038
+  original:
+    git: https://github.com/dixonary/karp-miller
+    commit: cf24259b56dc36f30ab8f4f6e19a31709cbf1038
 snapshots:
 - completed:
     size: 500539

@@ -250,6 +250,8 @@ runILP (GVASS components) = do
             in (,0) . Map.fromList <$> transposedValues
 
 
+        -- Kirchoff constraints ensure that the sum of all activated transitions of a state 
+        -- match inbound and outbound.
         kirchoffConstraints :: (Int, Component) -> [(Map ILPVar Integer, Integer)]
         kirchoffConstraints (compIndex, comp@Component{..}) = 
             let
@@ -274,6 +276,7 @@ runILP (GVASS components) = do
 
             in (\state -> (Map.fromList $ transVarsWithAdjacency state, stateVal state)) <$> toList states
 
+        -- We tell the solver that constrained values 
         constrainedValueConstraints :: (Int, Component) -> [(Map ILPVar Integer, Integer)]
         constrainedValueConstraints (compIndex, comp@Component{..}) =
             let
